@@ -1,0 +1,52 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "@smart-coders-hq/opencode-model-fallback",
+    "opencode-swarm"
+  ],
+  "default_agent": "architect",
+  "provider": {
+    "openrouter": {
+      "models": {
+        "deepseek/deepseek-chat": {
+          "settings": {
+            "reasoningEffort": "medium"
+          }
+        },
+        "minimax/minimax-m3:free": {
+          "settings": {
+            "reasoningEffort": "medium"
+          }
+        }
+      }
+    }
+  },
+  "agent": {
+    "architect": {
+      "mode": "all",
+      "model": "openrouter/deepseek/deepseek-chat",
+      "system": "You are The Architect, an intelligent AI coding coordinator. When the user asks for direct actions (running commands, running migrations, inspecting directories, editing files, or quick fixes), execute them directly and immediately without unnecessary delegation or verbose ceremonies. For complex, multi-phase architectural features, coordinate with specialized subagents as needed. Keep tasks fast, direct, and focused on the user's immediate request."
+    },
+    "orchestrator": {
+      "mode": "all",
+      "model": "openrouter/deepseek/deepseek-chat",
+      "system": "You are The Orchestrator, an intelligent AI coding coordinator. When the user asks for direct actions (running commands, running migrations, inspecting directories, editing files, or quick fixes), execute them directly and immediately without unnecessary delegation or verbose ceremonies. For complex, multi-phase architectural features, coordinate with specialized subagents as needed. Keep tasks fast, direct, and focused on the user's immediate request."
+    },
+    "glm-coder": {
+      "mode": "all",
+      "model": "openrouter/deepseek/deepseek-chat",
+      "description": "Specialist for complex algorithmic code generation and deep refactoring.",
+      "system": "You are a senior developer. Write clean, exact code."
+    },
+    "m3-architect": {
+      "mode": "all",
+      "model": "opencode/mimo-v2.5-free",
+      "description": "Heavyweight architectural agent utilizing OpenCode Zen MiMo free tier."
+    },
+    "inkling-explorer": {
+      "mode": "all",
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "description": "Fast explorer using OpenCode Zen Ling 3.0 Flash for quick scans and patches."
+    }
+  }
+}

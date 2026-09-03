@@ -1,0 +1,90 @@
+﻿# Skill-to-Agent Routing for opencode-swarm
+# Maps agents to the skills they should use from .agents/skills/
+# Skills are auto-discovered and scored by relevance; this config
+# overrides the default to ensure project-specific skills are used.
+
+architect:
+  skills:
+    - writing-plans
+    - brainstorming
+    - api-design-principles
+    - frontend-design
+    - tailwind-design-system
+    - web-design-guidelines
+    - quality-assurance-sentinel
+    - verification-before-completion
+    - systematic-debugging
+    - performance
+    - review
+
+coder:
+  skills:
+    - api-design-principles
+    - frontend-design
+    - tailwind-design-system
+    - web-design-guidelines
+    - writing-plans
+    - systematic-debugging
+    - performance
+    - quality-assurance-sentinel
+    - verification-before-completion
+    - review
+
+reviewer:
+  skills:
+    - review
+    - api-design-principles
+    - frontend-design
+    - tailwind-design-system
+    - web-design-guidelines
+    - quality-assurance-sentinel
+    - verification-before-completion
+    - systematic-debugging
+    - performance
+
+test_engineer:
+  skills:
+    - tester
+    - quality-assurance-sentinel
+    - verification-before-completion
+    - systematic-debugging
+    - api-design-principles
+
+explorer:
+  skills:
+    - explain
+    - brainstorming
+    - api-design-principles
+    - frontend-design
+    - tailwind-design-system
+    - web-design-guidelines
+    - performance
+    - review
+
+sme:
+  skills:
+    - api-design-principles
+    - frontend-design
+    - tailwind-design-system
+    - web-design-guidelines
+    - performance
+    - quality-assurance-sentinel
+    - systematic-debugging
+
+critic:
+  skills:
+    - review
+    - quality-assurance-sentinel
+    - verification-before-completion
+    - api-design-principles
+    - frontend-design
+    - web-design-guidelines
+    - performance
+
+docs:
+  skills:
+    - writing-plans
+    - api-design-principles
+    - frontend-design
+    - web-design-guidelines
+    - quality-assurance-sentinel

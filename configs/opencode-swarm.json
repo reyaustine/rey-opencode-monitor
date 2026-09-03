@@ -1,0 +1,284 @@
+{
+  "$schema": "https://unpkg.com/opencode-swarm@7.162.1/opencode-swarm.schema.json",
+  "agents": {
+    "architect": {
+      "model": "openrouter/deepseek/deepseek-chat",
+      "fallback_models": [
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "opencode/mimo-v2.5-free",
+        "openrouter/minimax/minimax-m3:free"
+      ],
+      "reasoning": {
+        "effort": "low"
+      }
+    },
+    "coder": {
+      "model": "openrouter/deepseek/deepseek-chat",
+      "fallback_models": [
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/mistralai/mistral-small-3.2-24b-instruct:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ],
+      "reasoning": {
+        "effort": "medium"
+      }
+    },
+    "test_engineer": {
+      "model": "openrouter/deepseek/deepseek-chat",
+      "fallback_models": [
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/mistralai/mistral-small-3.2-24b-instruct:free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/big-pickle"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "reviewer": {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "fallback_models": [
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/meta/llama-3.3-70b:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "explorer": {
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "fallback_models": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/minimax-m2.5-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "sme": {
+      "model": "openrouter/deepseek/deepseek-chat",
+      "fallback_models": [
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ],
+      "reasoning": {
+        "effort": "medium"
+      }
+    },
+    "researcher": {
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "fallback_models": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free"
+      ]
+    },
+    "critic": {
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "fallback_models": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "docs": {
+      "model": "opencode/minimax-m2.5-free",
+      "fallback_models": [
+        "openrouter/meta/muse-spark-1.3-contributor:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "docs_design": {
+      "model": "opencode/minimax-m2.5-free",
+      "fallback_models": [
+        "openrouter/meta/muse-spark-1.3-contributor:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "designer": {
+      "model": "opencode/minimax-m2.5-free",
+      "fallback_models": [
+        "openrouter/meta/muse-spark-1.3-contributor:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "critic_sounding_board": {
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "fallback_models": [
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "openrouter/google/gemma-4-31b-it:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "critic_drift_verifier": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "critic_hallucination_verifier": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "critic_oversight": {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "fallback_models": [
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/google/gemma-4-31b-it:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "critic_architecture_supervisor": {
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "fallback_models": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "critic_finding_validator": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ],
+      "reasoning": {
+        "effort": "high"
+      }
+    },
+    "curator_init": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "curator_phase": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "curator_postmortem": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "curator_consolidation": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "skill_improver": {
+      "model": "opencode/big-pickle",
+      "fallback_models": [
+        "opencode/minimax-m2.5-free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
+      ]
+    },
+    "spec_writer": {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "fallback_models": [
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free"
+      ],
+      "reasoning": {
+        "effort": "medium"
+      }
+    }
+  },
+  "max_iterations": 2,
+  "execution_mode": "fast",
+  "turbo_mode": true,
+  "repo_graph": {
+    "enabled": false
+  },
+  "curator": {
+    "init_enabled": false,
+    "postmortem_enabled": false
+  },
+  "gates": {
+    "syntax_check": {
+      "enabled": true
+    },
+    "placeholder_scan": {
+      "enabled": false
+    },
+    "sast_scan": {
+      "enabled": false
+    },
+    "sbom_generate": {
+      "enabled": false
+    }
+  },
+  "phase_complete": {
+    "policy": "warn",
+    "require_docs": false
+  }
+}

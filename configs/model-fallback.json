@@ -1,0 +1,75 @@
+{
+  "enabled": true,
+  "defaults": {
+    "fallbackOn": [
+      "rate_limit",
+      "quota_exceeded",
+      "5xx",
+      "timeout",
+      "overloaded"
+    ],
+    "cooldownMs": 60000,
+    "retryOriginalAfterMs": 180000,
+    "maxFallbackDepth": 6
+  },
+  "agents": {
+    "architect": {
+      "fallbackModels": [
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "opencode/mimo-v2.5-free",
+        "openrouter/minimax/minimax-m3:free"
+      ]
+    },
+    "orchestrator": {
+      "fallbackModels": [
+        "openrouter/minimax/minimax-m3:free",
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle",
+        "opencode/ling-3.0-flash-fin-free"
+      ]
+    },
+    "glm-coder": {
+      "fallbackModels": [
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/mistralai/mistral-small-3.2-24b-instruct:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle",
+        "opencode/ling-3.0-flash-fin-free"
+      ]
+    },
+    "m3-architect": {
+      "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/muse-spark-1.2-contributor-free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/minimax/minimax-m3:free"
+      ]
+    },
+    "inkling-explorer": {
+      "fallbackModels": [
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/big-pickle",
+        "opencode/minimax-m2.5-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "openrouter/minimax/minimax-m3:free"
+      ]
+    }
+  }
+}
