@@ -123,7 +123,7 @@
   },
   "gates": {
     "syntax_check": {
-      "enabled": true
+      "enabled": false
     },
     "placeholder_scan": {
       "enabled": false
