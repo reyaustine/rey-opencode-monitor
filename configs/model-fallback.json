@@ -15,7 +15,7 @@
   "agents": {
     "*": {
       "fallbackModels": [
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
@@ -24,7 +24,7 @@
     },
     "orchestrator": {
       "fallbackModels": [
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "openrouter/openai/gpt-oss-120b:free",
@@ -33,7 +33,7 @@
     },
     "glm-coder": {
       "fallbackModels": [
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "google/gemini-2.5-flash",
         "openrouter/deepseek/deepseek-chat",
         "opencode/big-pickle"
@@ -41,7 +41,7 @@
     },
     "m3-architect": {
       "fallbackModels": [
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "openrouter/minimax/minimax-m3:free",
         "google/gemini-2.5-flash",
         "opencode/big-pickle"
@@ -50,14 +50,14 @@
     "inkling-explorer": {
       "fallbackModels": [
         "google/gemini-2.5-flash",
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle"
       ]
     },
     "reviewer": {
       "fallbackModels": [
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle"
@@ -65,7 +65,7 @@
     },
     "critic": {
       "fallbackModels": [
-        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle"

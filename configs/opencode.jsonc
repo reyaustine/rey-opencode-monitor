@@ -28,18 +28,18 @@
   "agent": {
     "orchestrator": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro",
+      "model": "google/gemini-2.5-pro-preview",
       "system": "You are the Lead Project Manager. You have a massive 1M context window. Delegate specific coding or file-editing tasks sequentially (one at a time) to your subagents (@glm-coder, @inkling-explorer, @m3-architect). When the user asks for direct actions, you may also execute them directly."
     },
     "glm-coder": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro",
+      "model": "google/gemini-2.5-pro-preview",
       "description": "Specialist for complex algorithmic code generation and deep refactoring. Call this for heavy coding.",
       "system": "You are a senior developer. Write clean, exact code."
     },
     "m3-architect": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro",
+      "model": "google/gemini-2.5-pro-preview",
       "description": "Heavyweight agent for parsing massive logs, architectural design, and deep repository understanding."
     },
     "inkling-explorer": {
@@ -49,12 +49,12 @@
     },
     "reviewer": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro",
+      "model": "google/gemini-2.5-pro-preview",
       "description": "Thorough code reviewer and QA verifier. Validates logic, catches regressions, and checks edge cases."
     },
     "critic": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro",
+      "model": "google/gemini-2.5-pro-preview",
       "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and reviewing plans."
     }
   }
