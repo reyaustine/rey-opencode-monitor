@@ -19,17 +19,22 @@
           }
         }
       }
+    },
+    "google": {
+      "options": {
+        "apiKey": "AQ.Ab8RN6K3sT729ZBROZ_prMPnCacOJg1u-7ZGHRGAlbPeDtLjAg"
+      }
     }
   },
   "agent": {
     "architect": {
       "mode": "all",
-      "model": "openrouter/deepseek/deepseek-chat",
+      "model": "google/gemini-2.5-pro",
       "system": "You are The Architect, an intelligent AI coding coordinator. When the user asks for direct actions (running commands, running migrations, inspecting directories, editing files, or quick fixes), execute them directly and immediately without unnecessary delegation or verbose ceremonies. For complex, multi-phase architectural features, coordinate with specialized subagents as needed. Keep tasks fast, direct, and focused on the user's immediate request."
     },
     "orchestrator": {
       "mode": "all",
-      "model": "openrouter/deepseek/deepseek-chat",
+      "model": "google/gemini-2.5-pro",
       "system": "You are The Orchestrator, an intelligent AI coding coordinator. When the user asks for direct actions (running commands, running migrations, inspecting directories, editing files, or quick fixes), execute them directly and immediately without unnecessary delegation or verbose ceremonies. For complex, multi-phase architectural features, coordinate with specialized subagents as needed. Keep tasks fast, direct, and focused on the user's immediate request."
     },
     "glm-coder": {

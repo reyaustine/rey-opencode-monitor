@@ -15,43 +15,39 @@
   "agents": {
     "*": {
       "fallbackModels": [
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "opencode/minimax-m2.5-free",
-        "openrouter/meta/llama-3.3-70b:free",
-        "openrouter/deepseek/deepseek-chat"
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "architect": {
       "fallbackModels": [
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
         "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "openrouter/meta/llama-3.3-70b:free",
-        "opencode/mimo-v2.5-free"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "orchestrator": {
       "fallbackModels": [
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
         "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/meta/llama-3.3-70b:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "opencode/minimax-m2.5-free"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "coder": {
       "fallbackModels": [
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
         "openrouter/deepseek/deepseek-chat",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/meta/llama-3.3-70b:free",
         "opencode/big-pickle"
       ]
     },
@@ -66,20 +62,21 @@
     },
     "critic": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
+        "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
-        "opencode/minimax-m2.5-free",
-        "openrouter/meta/llama-3.3-70b:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free"
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "researcher": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
+        "google/gemini-2.5-flash",
+        "google/gemini-2.5-pro",
         "opencode/big-pickle",
-        "opencode/minimax-m2.5-free",
-        "openrouter/meta/llama-3.3-70b:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free"
+        "openrouter/minimax/minimax-m3:free",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "test_engineer": {
@@ -92,24 +89,29 @@
     },
     "reviewer": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
+        "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
-        "openrouter/meta/llama-3.3-70b:free"
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "explorer": {
       "fallbackModels": [
+        "google/gemini-2.5-flash",
+        "google/gemini-2.5-pro",
         "opencode/big-pickle",
-        "opencode/minimax-m2.5-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/meta/llama-3.3-70b:free"
+        "openrouter/minimax/minimax-m3:free",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "docs": {
       "fallbackModels": [
+        "google/gemini-2.5-flash",
+        "google/gemini-2.5-pro",
         "opencode/big-pickle",
-        "opencode/minimax-m2.5-free",
+        "openrouter/minimax/minimax-m3:free",
         "openrouter/google/gemma-4-31b-it:free"
       ]
     },

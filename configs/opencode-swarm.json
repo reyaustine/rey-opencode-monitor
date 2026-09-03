@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/opencode-swarm@7.162.1/opencode-swarm.schema.json",
   "agents": {
     "architect": {
-      "model": "openrouter/deepseek/deepseek-chat",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "low"
       }
@@ -20,13 +20,13 @@
       }
     },
     "reviewer": {
-      "model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "explorer": {
-      "model": "opencode/ling-3.0-flash-fin-free"
+      "model": "google/gemini-2.5-flash"
     },
     "sme": {
       "model": "openrouter/deepseek/deepseek-chat",
@@ -35,70 +35,70 @@
       }
     },
     "researcher": {
-      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free"
+      "model": "google/gemini-2.5-flash"
     },
     "critic": {
-      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "docs": {
-      "model": "opencode/minimax-m2.5-free"
+      "model": "google/gemini-2.5-flash"
     },
     "docs_design": {
-      "model": "opencode/minimax-m2.5-free"
+      "model": "google/gemini-2.5-flash"
     },
     "designer": {
       "model": "opencode/minimax-m2.5-free"
     },
     "critic_sounding_board": {
-      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "critic_drift_verifier": {
-      "model": "opencode/big-pickle",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "critic_hallucination_verifier": {
-      "model": "opencode/big-pickle",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "critic_oversight": {
-      "model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "critic_architecture_supervisor": {
-      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "critic_finding_validator": {
-      "model": "opencode/big-pickle",
+      "model": "google/gemini-2.5-pro",
       "reasoning": {
         "effort": "high"
       }
     },
     "curator_init": {
-      "model": "opencode/big-pickle"
+      "model": "google/gemini-2.5-flash"
     },
     "curator_phase": {
-      "model": "opencode/big-pickle"
+      "model": "google/gemini-2.5-flash"
     },
     "curator_postmortem": {
-      "model": "opencode/big-pickle"
+      "model": "google/gemini-2.5-flash"
     },
     "curator_consolidation": {
-      "model": "opencode/big-pickle"
+      "model": "google/gemini-2.5-flash"
     },
     "skill_improver": {
       "model": "opencode/big-pickle"
