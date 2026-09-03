@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const cacheDir = path.join(process.env.USERPROFILE || '', '.cache', 'opencode', 'packages');
+const home = process.env.HOME || process.env.USERPROFILE || '';
+const cacheDir = path.join(home, '.cache', 'opencode', 'packages');
 
 function findSwarmIndexFiles(dir) {
   const results = [];

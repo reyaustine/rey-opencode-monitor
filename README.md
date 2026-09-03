@@ -29,20 +29,29 @@ opencode-swarm-pack/
 
 ## ⚡ Setting Up on a Different / Fresh Machine
 
-When you work on another machine (laptop, home PC, or server):
+When you work on another machine (Mac, Windows, or Linux):
 
 ### Step 1: Clone This Repository
-```powershell
-git clone <YOUR-PRIVATE-REPO-URL> C:\Users\<YourUser>\opencode-swarm-pack
+```bash
+# On Mac / Linux:
+git clone https://github.com/reyaustine/opencode-swarm-pack.git ~/opencode-swarm-pack
+cd ~/opencode-swarm-pack
+
+# On Windows (PowerShell):
+git clone https://github.com/reyaustine/opencode-swarm-pack.git C:\Users\<YourUser>\opencode-swarm-pack
 cd C:\Users\<YourUser>\opencode-swarm-pack
 ```
 
 ### Step 2: Run the Master Installer
-```powershell
-# Set up OpenCode globally on this machine:
+```bash
+# On Mac / Linux:
+chmod +x *.sh
+./install.sh --global-only
+
+# On Windows (PowerShell):
 .\install.ps1 -GlobalOnly
 ```
-**What this does automatically:**
+**What this does automatically on that machine:**
 1. Checks that Node.js (v20+) is available.
 2. Ensures the `opencode-swarm` and `@smart-coders-hq/opencode-model-fallback` plugins are installed.
 3. Deploys the machine-global configuration into `~/.config/opencode/`.
@@ -55,12 +64,11 @@ cd C:\Users\<YourUser>\opencode-swarm-pack
 
 If you want a project to have its own dedicated `.opencode/` directory:
 
-```powershell
-.\inject.ps1 -Target "D:\Projects\MyOtherApp"
-```
+```bash
+# On Mac / Linux:
+./inject.sh /path/to/my-project --include-skills
 
-To also copy all 30+ skills into that project's `.agents/skills/`:
-```powershell
+# On Windows (PowerShell):
 .\inject.ps1 -Target "D:\Projects\MyOtherApp" -IncludeSkills
 ```
 
@@ -70,7 +78,11 @@ To also copy all 30+ skills into that project's `.agents/skills/`:
 
 To verify that your OpenCode runtime, binary patches, and 22-agent team are functioning properly:
 
-```powershell
+```bash
+# On Mac / Linux:
+./verify.sh
+
+# On Windows (PowerShell):
 .\verify.ps1
 ```
 

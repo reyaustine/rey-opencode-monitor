@@ -1,26 +1,55 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-// Locate opencode.exe
-const defaultPaths = [
-  path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe'),
-  'C:/Users/rey.echavez/AppData/Roaming/npm/node_modules/opencode-ai/bin/opencode.exe'
-];
+function findOpencodeBinary() {
+  // 1. Try finding via system PATH
+  try {
+    const cmd = process.platform === 'win32' ? 'where opencode' : 'which opencode';
+    const out = execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    const lines = out.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (fs.existsSync(line)) {
+        let real = fs.realpathSync(line);
+        if (fs.existsSync(real)) {
+          if (process.platform === 'win32') {
+            if (real.endsWith('.exe')) return real;
+            const exeSibling = path.join(path.dirname(real), 'node_modules', 'opencode-ai', 'bin', 'opencode.exe');
+            if (fs.existsSync(exeSibling)) return exeSibling;
+          } else {
+            const unixBin = path.join(path.dirname(real), 'node_modules', 'opencode-ai', 'bin', 'opencode');
+            if (fs.existsSync(unixBin)) return unixBin;
+            return real;
+          }
+        }
+      }
+    }
+  } catch {}
 
-let binPath = null;
-for (const p of defaultPaths) {
-  if (fs.existsSync(p)) {
-    binPath = p;
-    break;
+  // 2. Standard paths per OS
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const candidates = [
+    path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe'),
+    '/usr/local/lib/node_modules/opencode-ai/bin/opencode',
+    '/opt/homebrew/lib/node_modules/opencode-ai/bin/opencode',
+    path.join(home, '.local', 'share', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode'),
+    path.join(home, '.bun', 'bin', 'opencode')
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
   }
+  return null;
 }
+
+const binPath = findOpencodeBinary();
 
 if (!binPath) {
-  console.error('[-] opencode.exe not found in expected default paths.');
-  process.exit(1);
+  console.log('[*] opencode binary not found in standard paths. Skipping binary patch.');
+  process.exit(0);
 }
 
-console.log('[*] Found opencode.exe at:', binPath);
+console.log('[*] Found opencode binary at:', binPath);
 
 const target = Buffer.from('$i=30000,xi=2147483647;');
 const replacement = Buffer.from('$i=3000 ,xi=3000      ;');
@@ -65,16 +94,15 @@ try {
   fs.closeSync(fd);
 
   if (patched) {
-    console.log('[✓] opencode.exe is successfully patched (3-second maximum retry backoff).');
+    console.log('[✓] opencode binary successfully patched (3-second maximum retry backoff).');
   } else {
-    console.warn('[!] Target sequence not found. Binary may be a different version or format.');
+    console.log('[*] Target pattern not found or already optimized in this build.');
   }
 } catch (err) {
-  if (err.code === 'EBUSY') {
-    console.error('[!] opencode.exe is currently locked by a running process.');
+  if (err.code === 'EBUSY' || err.code === 'ETXTBSY') {
+    console.error('[!] opencode binary is currently locked by a running process.');
     console.error('    Please close OpenCode Desktop / CLI before running this patch.');
   } else {
     console.error('[-] Patch error:', err.message);
   }
-  process.exit(1);
 }
