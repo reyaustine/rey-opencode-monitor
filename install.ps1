@@ -63,6 +63,7 @@ Write-Host "`n[*] Applying machine-level runtime patches..." -ForegroundColor Cy
 node (Join-Path $ScriptDir "patches\patch-opencode-binary.js")
 node (Join-Path $ScriptDir "patches\patch-desktop-asar.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-posix.js")
+node (Join-Path $ScriptDir "patches\patch-swarm-parse-error.js")
 node (Join-Path $ScriptDir "patches\patch-watchdog-timeout.js")
 node (Join-Path $ScriptDir "patches\fix-model-key-regex.js")
 

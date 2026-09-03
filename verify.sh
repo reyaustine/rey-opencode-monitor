@@ -19,6 +19,7 @@ echo "[*] Verifying runtime stability patches..."
 node "$SCRIPT_DIR/patches/patch-opencode-binary.js"
 node "$SCRIPT_DIR/patches/patch-desktop-asar.js"
 node "$SCRIPT_DIR/patches/patch-swarm-posix.js"
+node "$SCRIPT_DIR/patches/patch-swarm-parse-error.js"
 node "$SCRIPT_DIR/patches/patch-watchdog-timeout.js"
 node "$SCRIPT_DIR/patches/fix-model-key-regex.js"
 

@@ -256,6 +256,7 @@
   "max_iterations": 2,
   "execution_mode": "fast",
   "turbo_mode": true,
+  "block_destructive_commands": false,
   "repo_graph": {
     "enabled": false
   },
