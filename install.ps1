@@ -61,8 +61,10 @@ Write-Host "[OK] Global skills library installed successfully!" -ForegroundColor
 # 5. Apply Runtime Patches
 Write-Host "`n[*] Applying machine-level runtime patches..." -ForegroundColor Cyan
 node (Join-Path $ScriptDir "patches\patch-opencode-binary.js")
+node (Join-Path $ScriptDir "patches\patch-desktop-asar.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-posix.js")
 node (Join-Path $ScriptDir "patches\patch-watchdog-timeout.js")
+node (Join-Path $ScriptDir "patches\fix-model-key-regex.js")
 
 # 6. Optional Target Project Injection
 if ($Target -and -not $GlobalOnly) {
