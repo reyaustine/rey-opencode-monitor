@@ -19,18 +19,7 @@
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free"
-      ]
-    },
-    "architect": {
-      "fallbackModels": [
-        "google/gemini-2.5-pro",
-        "google/gemini-2.5-flash",
-        "openrouter/minimax/minimax-m3:free",
-        "opencode/big-pickle",
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free"
+        "openrouter/deepseek/deepseek-chat"
       ]
     },
     "orchestrator": {
@@ -38,12 +27,11 @@
         "google/gemini-2.5-pro",
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
-        "opencode/big-pickle",
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free"
+        "openrouter/openai/gpt-oss-120b:free",
+        "opencode/big-pickle"
       ]
     },
-    "coder": {
+    "glm-coder": {
       "fallbackModels": [
         "google/gemini-2.5-pro",
         "google/gemini-2.5-flash",
@@ -51,12 +39,27 @@
         "opencode/big-pickle"
       ]
     },
-    "glm-coder": {
+    "m3-architect": {
       "fallbackModels": [
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/meta/llama-3.3-70b:free",
+        "google/gemini-2.5-pro",
+        "openrouter/minimax/minimax-m3:free",
+        "google/gemini-2.5-flash",
+        "opencode/big-pickle"
+      ]
+    },
+    "inkling-explorer": {
+      "fallbackModels": [
+        "google/gemini-2.5-flash",
+        "google/gemini-2.5-pro",
+        "openrouter/minimax/minimax-m3:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "reviewer": {
+      "fallbackModels": [
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
+        "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle"
       ]
     },
@@ -65,75 +68,7 @@
         "google/gemini-2.5-pro",
         "google/gemini-2.5-flash",
         "openrouter/minimax/minimax-m3:free",
-        "opencode/big-pickle",
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free"
-      ]
-    },
-    "researcher": {
-      "fallbackModels": [
-        "google/gemini-2.5-flash",
-        "google/gemini-2.5-pro",
-        "opencode/big-pickle",
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/google/gemma-4-31b-it:free"
-      ]
-    },
-    "test_engineer": {
-      "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "opencode/big-pickle",
-        "openrouter/meta/llama-3.3-70b:free"
-      ]
-    },
-    "reviewer": {
-      "fallbackModels": [
-        "google/gemini-2.5-pro",
-        "google/gemini-2.5-flash",
-        "openrouter/minimax/minimax-m3:free",
-        "opencode/big-pickle",
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free"
-      ]
-    },
-    "explorer": {
-      "fallbackModels": [
-        "google/gemini-2.5-flash",
-        "google/gemini-2.5-pro",
-        "opencode/big-pickle",
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/google/gemma-4-31b-it:free"
-      ]
-    },
-    "docs": {
-      "fallbackModels": [
-        "google/gemini-2.5-flash",
-        "google/gemini-2.5-pro",
-        "opencode/big-pickle",
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/google/gemma-4-31b-it:free"
-      ]
-    },
-    "sme": {
-      "fallbackModels": [
-        "openrouter/deepseek/deepseek-chat",
-        "openrouter/google/gemma-4-31b-it:free",
         "opencode/big-pickle"
-      ]
-    },
-    "designer": {
-      "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free"
-      ]
-    },
-    "spec_writer": {
-      "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free"
       ]
     }
   }

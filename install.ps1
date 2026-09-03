@@ -30,7 +30,7 @@ if (-not (Get-Command opencode -ErrorAction SilentlyContinue)) {
 # 2. Add required plugins
 Write-Host "`n[*] Ensuring OpenCode plugins are installed..." -ForegroundColor White
 try {
-  opencode plugin add @smart-coders-hq/opencode-model-fallback opencode-swarm 2>$null
+  opencode plugin add @smart-coders-hq/opencode-model-fallback 2>$null
   Write-Host "[OK] Plugins verified." -ForegroundColor Green
 } catch {
   Write-Host "[!] Note: Plugin registration will finalize on next opencode run." -ForegroundColor Yellow
@@ -42,7 +42,7 @@ if (-not (Test-Path $GlobalDir)) {
   New-Item -ItemType Directory -Path $GlobalDir -Force | Out-Null
 }
 
-$ConfigFiles = @("opencode.jsonc", "opencode-swarm.json", "model-fallback.json")
+$ConfigFiles = @("opencode.jsonc", "model-fallback.json")
 foreach ($file in $ConfigFiles) {
   $src = Join-Path $ConfigsDir $file
   $dst = Join-Path $GlobalDir $file
@@ -55,17 +55,17 @@ Write-Host "`n[*] Installing bundled skills to $GlobalSkillsDir..." -ForegroundC
 if (-not (Test-Path $GlobalSkillsDir)) {
   New-Item -ItemType Directory -Path $GlobalSkillsDir -Force | Out-Null
 }
-Copy-Item -Recurse -Force (Join-Path $SkillsDir "*") $GlobalSkillsDir
-Write-Host "[OK] Global skills library installed successfully!" -ForegroundColor Green
+
+if (Test-Path $SkillsDir) {
+  Copy-Item -Path "$SkillsDir\*" -Destination $GlobalSkillsDir -Recurse -Force
+  Write-Host "[+] Skills copied to $GlobalSkillsDir" -ForegroundColor Green
+}
 
 # 5. Apply Runtime Patches
 Write-Host "`n[*] Applying machine-level runtime patches..." -ForegroundColor Cyan
 node (Join-Path $ScriptDir "patches\patch-opencode-binary.js")
 node (Join-Path $ScriptDir "patches\patch-desktop-asar.js")
 node (Join-Path $ScriptDir "patches\patch-gemini-enum.js")
-node (Join-Path $ScriptDir "patches\patch-swarm-posix.js")
-node (Join-Path $ScriptDir "patches\patch-swarm-parse-error.js")
-node (Join-Path $ScriptDir "patches\patch-fast-boot.js")
 node (Join-Path $ScriptDir "patches\patch-watchdog-timeout.js")
 node (Join-Path $ScriptDir "patches\patch-context-length-fallback.js")
 node (Join-Path $ScriptDir "patches\fix-model-key-regex.js")
