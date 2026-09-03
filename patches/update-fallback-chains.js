@@ -1,6 +1,7 @@
 const fs = require('fs');
 
 const defaultChain = [
+  "openrouter/minimax/minimax-m3:free",
   "opencode/big-pickle",
   "openrouter/google/gemma-4-31b-it:free",
   "openrouter/qwen/qwen-2.5-72b-instruct:free",
@@ -15,8 +16,9 @@ const agents = {
   },
   "architect": {
     "fallbackModels": [
-      "openrouter/deepseek/deepseek-chat",
+      "openrouter/minimax/minimax-m3:free",
       "opencode/big-pickle",
+      "openrouter/deepseek/deepseek-chat",
       "openrouter/google/gemma-4-31b-it:free",
       "openrouter/qwen/qwen-2.5-72b-instruct:free",
       "openrouter/meta/llama-3.3-70b:free",
@@ -25,8 +27,9 @@ const agents = {
   },
   "orchestrator": {
     "fallbackModels": [
-      "openrouter/deepseek/deepseek-chat",
+      "openrouter/minimax/minimax-m3:free",
       "opencode/big-pickle",
+      "openrouter/deepseek/deepseek-chat",
       "openrouter/google/gemma-4-31b-it:free",
       "openrouter/meta/llama-3.3-70b:free",
       "openrouter/qwen/qwen-2.5-72b-instruct:free",

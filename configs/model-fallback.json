@@ -15,6 +15,7 @@
   "agents": {
     "*": {
       "fallbackModels": [
+        "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/qwen/qwen-2.5-72b-instruct:free",
@@ -25,8 +26,9 @@
     },
     "architect": {
       "fallbackModels": [
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
+        "openrouter/deepseek/deepseek-chat",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/qwen/qwen-2.5-72b-instruct:free",
         "openrouter/meta/llama-3.3-70b:free",
@@ -35,8 +37,9 @@
     },
     "orchestrator": {
       "fallbackModels": [
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/minimax/minimax-m3:free",
         "opencode/big-pickle",
+        "openrouter/deepseek/deepseek-chat",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/meta/llama-3.3-70b:free",
         "openrouter/qwen/qwen-2.5-72b-instruct:free",

@@ -66,6 +66,7 @@ node (Join-Path $ScriptDir "patches\patch-swarm-posix.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-parse-error.js")
 node (Join-Path $ScriptDir "patches\patch-fast-boot.js")
 node (Join-Path $ScriptDir "patches\patch-watchdog-timeout.js")
+node (Join-Path $ScriptDir "patches\patch-context-length-fallback.js")
 node (Join-Path $ScriptDir "patches\fix-model-key-regex.js")
 
 # 6. Optional Target Project Injection
