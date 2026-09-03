@@ -1,15 +1,19 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  // Stable model-fallback plugin only — no swarm, no Google
   "plugin": [
     "@smart-coders-hq/opencode-model-fallback"
   ],
   "default_agent": "orchestrator",
+  "permission": {
+    "bash": "allow",
+    "read": "allow",
+    "write": "allow",
+    "external_directory": {
+      "*": "allow"
+    }
+  },
   "provider": {
-    "google": {
-      "options": {
-        "apiKey": "AQ.Ab8RN6K3sT729ZBROZ_prMPnCacOJg1u-7ZGHRGAlbPeDtLjAg"
-      }
-    },
     "openrouter": {
       "models": {
         "minimax/minimax-m3:free": {
@@ -26,36 +30,138 @@
     }
   },
   "agent": {
+    // ── LEAD ORCHESTRATOR ────────────────────────────────────────────────────
     "orchestrator": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro-preview",
-      "system": "You are the Lead Project Manager. You have a massive 1M context window. Delegate specific coding or file-editing tasks sequentially (one at a time) to your subagents (@glm-coder, @inkling-explorer, @m3-architect). When the user asks for direct actions, you may also execute them directly."
+      "model": "openrouter/minimax/minimax-m3:free",
+      "system": "You are the Lead Project Manager with a 1M context window. Delegate tasks sequentially (one at a time) to your specialist subagents using @mention syntax: @glm-coder (heavy coding/refactoring), @inkling-explorer (quick edits/CSS), @m3-architect (deep architecture/logs), @reviewer (code review/QA), @critic (critical analysis), @test-engineer (testing), @sme (subject matter expertise), @researcher (research), @designer (UI design), @docs (documentation), @spec-writer (spec writing). Do NOT write massive code blocks yourself — delegate and synthesize."
     },
+
+    // ── CODING SPECIALISTS ───────────────────────────────────────────────────
     "glm-coder": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro-preview",
-      "description": "Specialist for complex algorithmic code generation and deep refactoring. Call this for heavy coding.",
-      "system": "You are a senior developer. Write clean, exact code."
-    },
-    "m3-architect": {
-      "mode": "all",
-      "model": "google/gemini-2.5-pro-preview",
-      "description": "Heavyweight agent for parsing massive logs, architectural design, and deep repository understanding."
+      "model": "openrouter/deepseek/deepseek-chat",
+      "description": "Specialist for complex algorithmic code generation, deep refactoring, and TypeScript/JS logic. Call this for heavy coding.",
+      "system": "You are a senior developer. Write clean, exact, production-ready code. No placeholders."
     },
     "inkling-explorer": {
       "mode": "all",
-      "model": "google/gemini-2.5-flash",
-      "description": "Fast explorer for quick patches, CSS tweaks, UI updates, and surgical file edits."
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "description": "Fast explorer for quick patches, CSS tweaks, UI updates, and surgical file edits.",
+      "system": "You are a rapid-execution developer. Make precise, minimal changes. Speed over verbosity."
     },
+    "test-engineer": {
+      "mode": "all",
+      "model": "openrouter/deepseek/deepseek-chat",
+      "description": "Writes unit tests, integration tests, and validates edge cases. Specialist for TDD and QA engineering."
+    },
+
+    // ── ARCHITECTURE & ANALYSIS ──────────────────────────────────────────────
+    "m3-architect": {
+      "mode": "all",
+      "model": "openrouter/minimax/minimax-m3:free",
+      "description": "Heavyweight agent for parsing massive logs, architectural design, deep repository understanding, and system design."
+    },
+    "sme": {
+      "mode": "all",
+      "model": "openrouter/deepseek/deepseek-chat",
+      "description": "Subject Matter Expert. Deep domain knowledge for business logic, complex regulations, and specialized technical areas."
+    },
+    "researcher": {
+      "mode": "all",
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "description": "Research agent for investigating libraries, APIs, best practices, and gathering context before implementation."
+    },
+    "spec-writer": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "Writes detailed technical specifications, PRDs, and implementation plans from high-level requirements."
+    },
+
+    // ── REVIEW & QUALITY CONTROL ─────────────────────────────────────────────
     "reviewer": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro-preview",
+      "model": "opencode/mimo-v2.5-free",
       "description": "Thorough code reviewer and QA verifier. Validates logic, catches regressions, and checks edge cases."
     },
     "critic": {
       "mode": "all",
-      "model": "google/gemini-2.5-pro-preview",
-      "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and reviewing plans."
+      "model": "opencode/mimo-v2.5-free",
+      "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and stress-testing plans."
+    },
+    "critic-sounding-board": {
+      "mode": "all",
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "description": "Debate partner for ideas. Challenges assumptions and proposes alternative approaches before committing to a design."
+    },
+    "critic-drift-verifier": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "Checks for scope drift, requirement changes, and whether the implementation still matches the original plan."
+    },
+    "critic-hallucination-verifier": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "Detects hallucinated APIs, fake library methods, and factual errors in generated code or documentation."
+    },
+    "critic-oversight": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "High-level oversight agent. Reviews overall task progress, identifies blockers, and ensures quality gates are met."
+    },
+    "critic-architecture-supervisor": {
+      "mode": "all",
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "description": "Supervises architectural consistency across the codebase. Catches patterns, anti-patterns, and structural violations."
+    },
+    "critic-finding-validator": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "Validates critic findings before acting on them. Prevents false positives from triggering unnecessary changes."
+    },
+
+    // ── DOCUMENTATION & DESIGN ───────────────────────────────────────────────
+    "docs": {
+      "mode": "all",
+      "model": "opencode/muse-spark-1.3-free",
+      "description": "Writes and maintains developer documentation, READMEs, API docs, and inline code comments."
+    },
+    "docs-design": {
+      "mode": "all",
+      "model": "opencode/muse-spark-1.3-free",
+      "description": "Designs documentation structure, information architecture, and user-facing guides for end users."
+    },
+    "designer": {
+      "mode": "all",
+      "model": "opencode/muse-spark-1.3-free",
+      "description": "UI/UX design agent. Creates component designs, layout plans, and visual specifications."
+    },
+
+    // ── CURATOR / META AGENTS ────────────────────────────────────────────────
+    "curator-init": {
+      "mode": "all",
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "description": "Initializes curator workflows. Sets up project context, goals, and success criteria at the start of a task."
+    },
+    "curator-phase": {
+      "mode": "all",
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "description": "Manages phase transitions in multi-step tasks. Summarizes completed work and prepares context for the next phase."
+    },
+    "curator-postmortem": {
+      "mode": "all",
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "description": "Post-task analysis agent. Reviews what was done, identifies what worked, and captures lessons learned."
+    },
+    "curator-consolidation": {
+      "mode": "all",
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "description": "Consolidates outputs from multiple agents into a single coherent result or summary."
+    },
+    "skill-improver": {
+      "mode": "all",
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "description": "Analyzes agent outputs and suggests improvements to prompts, agent definitions, or workflows for future tasks."
     }
   }
 }
