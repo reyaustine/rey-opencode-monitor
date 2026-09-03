@@ -62,6 +62,7 @@ Write-Host "[OK] Global skills library installed successfully!" -ForegroundColor
 Write-Host "`n[*] Applying machine-level runtime patches..." -ForegroundColor Cyan
 node (Join-Path $ScriptDir "patches\patch-opencode-binary.js")
 node (Join-Path $ScriptDir "patches\patch-desktop-asar.js")
+node (Join-Path $ScriptDir "patches\patch-gemini-enum.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-posix.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-parse-error.js")
 node (Join-Path $ScriptDir "patches\patch-fast-boot.js")

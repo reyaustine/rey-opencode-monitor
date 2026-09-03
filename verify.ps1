@@ -20,6 +20,7 @@ if ($OpenCodeCmd) {
 Write-Host "`n[*] Verifying runtime stability patches..." -ForegroundColor Cyan
 node (Join-Path $ScriptDir "patches\patch-opencode-binary.js")
 node (Join-Path $ScriptDir "patches\patch-desktop-asar.js")
+node (Join-Path $ScriptDir "patches\patch-gemini-enum.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-posix.js")
 node (Join-Path $ScriptDir "patches\patch-swarm-parse-error.js")
 node (Join-Path $ScriptDir "patches\patch-fast-boot.js")
