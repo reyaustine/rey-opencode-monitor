@@ -6,10 +6,12 @@ import sqlite3
 from pathlib import Path
 
 def get_db_path():
-    user_profile = os.environ.get('USERPROFILE', '')
+    user_home = os.path.expanduser('~')
+    user_profile = os.environ.get('USERPROFILE', user_home)
     candidates = [
+        os.path.join(user_home, '.local', 'share', 'opencode', 'opencode.db'),
+        os.path.join(user_home, 'Library', 'Application Support', 'opencode', 'opencode.db'),
         os.path.join(user_profile, '.local', 'share', 'opencode', 'opencode.db'),
-        os.path.expanduser('~/.local/share/opencode/opencode.db'),
     ]
     for p in candidates:
         if os.path.exists(p):

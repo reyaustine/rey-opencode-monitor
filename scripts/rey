@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
+# macOS & Linux Launcher
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MONITOR_PY="$SCRIPT_DIR/rey-monitor.py"
+
+if [ ! -f "$MONITOR_PY" ]; then
+  MONITOR_PY="$HOME/.config/opencode/scripts/rey-monitor.py"
+fi
+
+if command -v python3 >/dev/null 2>&1; then
+  exec python3 "$MONITOR_PY" "$@"
+elif command -v python >/dev/null 2>&1; then
+  exec python "$MONITOR_PY" "$@"
+else
+  echo "Error: Python 3 is required to run R.E.Y. monitor. Please install python3."
+  exit 1
+fi

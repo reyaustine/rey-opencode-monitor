@@ -44,30 +44,49 @@ rey-opencode-monitor/
 
 ## ⚡ Setup on Another / Fresh Machine
 
-### Step 1: Clone This Repository
+### 🍎 On macOS & Linux (Terminal / zsh / bash)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/reyaustine/rey-opencode-monitor.git ~/rey-opencode-monitor
+cd ~/rey-opencode-monitor
+
+# 2. Set API keys (optional, add to ~/.zshrc or ~/.bashrc)
+export OPENROUTER_API_KEY="sk-or-v1-..."
+export GROQ_API_KEY="gsk_..."
+
+# 3. Run the non-destructive installer
+chmod +x install.sh
+./install.sh
+
+# 4. Launch R.E.Y. anywhere!
+rey
+```
+
+---
+
+### 🪟 On Windows (PowerShell)
+
 ```powershell
-# In PowerShell (Windows):
+# 1. Clone repository
 git clone https://github.com/reyaustine/rey-opencode-monitor.git "$env:USERPROFILE\rey-opencode-monitor"
 cd "$env:USERPROFILE\rey-opencode-monitor"
-```
 
-### Step 2: Configure Environment Keys (Optional but Recommended)
-Set your free provider keys as user environment variables (see `.env.example`):
-```powershell
+# 2. Set API keys (User scope - persists across reboots)
 [Environment]::SetEnvironmentVariable("OPENROUTER_API_KEY", "sk-or-v1-...", "User")
 [Environment]::SetEnvironmentVariable("GROQ_API_KEY", "gsk_...", "User")
-[Environment]::SetEnvironmentVariable("MISTRAL_API_KEY", "...", "User")
-```
 
-### Step 3: Run the Master Installer
-```powershell
+# 3. Run master installer
 .\install.ps1 -GlobalOnly
+
+# 4. Launch R.E.Y. anywhere!
+rey
 ```
 
-#### What `install.ps1` does automatically:
+#### What the installer does automatically on both platforms:
 1. **Clean & Non-Destructive**: Backs up any existing configuration files to `.bak.<timestamp>` before updating.
 2. **Deploys Machine-Global Config**: Installs `opencode.json`, `opencode.jsonc`, `model-fallback.json`, and `skill-routing.yaml` into `~/.config/opencode/`.
-3. **Installs R.E.Y. Monitor**: Deploys monitor scripts to `~/.config/opencode/scripts/` and registers the global `rey` command (and `jarvis` alias) in `%APPDATA%\npm` or User PATH.
+3. **Installs R.E.Y. Monitor**: Deploys monitor scripts to `~/.config/opencode/scripts/` and registers the global `rey` command (and `jarvis` alias) in PATH.
 4. **Installs Skills**: Copies 30+ production skills into `~/.agents/skills/`.
 5. **Applies Stability Patches**: Applies runtime patches for retry backoff and watchdog failover.
 
