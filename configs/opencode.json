@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "kilo/kilo-auto/free",
+  "small_model": "opencode/big-pickle",
+  "instructions": ["~/.config/opencode/instructions/delegation.md"],
+  "command": {
+    "free-model-check": {
+      "template": "Run the free-model health check: confirm the resolved default model is kilo/kilo-auto/free, run `opencode providers list --pure`, verify only the allowlisted providers (kilo, opencode, groq, google, mistral, huggingface) resolve, smoke-test the default model with `opencode run --format json`, and report any non-zero cost, missing key, or unavailable provider. Do not use or suggest paid models.",
+      "description": "Free-only provider/model health check",
+      "agent": "build"
+    }
+  }
+}

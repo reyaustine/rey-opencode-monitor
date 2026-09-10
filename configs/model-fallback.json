@@ -10,64 +10,242 @@
     ],
     "cooldownMs": 60000,
     "retryOriginalAfterMs": 180000,
-    "maxFallbackDepth": 6
+    "maxFallbackDepth": 8
   },
   "agents": {
+    // Global fallback — all agents inherit this if no specific chain defined
     "*": {
       "fallbackModels": [
-        "google/gemini-2.5-pro-preview",
-        "google/gemini-2.5-flash",
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/nemotron-3.5-lightning-free",
         "openrouter/minimax/minimax-m3:free",
-        "opencode/big-pickle",
-        "openrouter/deepseek/deepseek-chat"
-      ]
-    },
-    "orchestrator": {
-      "fallbackModels": [
-        "google/gemini-2.5-pro-preview",
-        "google/gemini-2.5-flash",
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/openai/gpt-oss-120b:free",
-        "opencode/big-pickle"
-      ]
-    },
-    "glm-coder": {
-      "fallbackModels": [
-        "google/gemini-2.5-pro-preview",
-        "google/gemini-2.5-flash",
         "openrouter/deepseek/deepseek-chat",
         "opencode/big-pickle"
       ]
     },
-    "m3-architect": {
+
+    // ── LEAD ORCHESTRATOR ────────────────────────────────────────────────────
+    "orchestrator": {
       "fallbackModels": [
-        "google/gemini-2.5-pro-preview",
+        // ── OpenCode Zen (native — try first) ────────────
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/nemotron-3-ultra-free",
+        "opencode/muse-spark-1.3-free",
+        // ── OpenRouter (external — after Zen exhausted) ──
         "openrouter/minimax/minimax-m3:free",
-        "google/gemini-2.5-flash",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/deepseek/deepseek-chat",
+        // ── Absolute floor ───────────────────────────────
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── CODING SPECIALISTS ───────────────────────────────────────────────────
+    "glm-coder": {
+      "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "opencode/nemotron-3.5-lightning-free",
         "opencode/big-pickle"
       ]
     },
     "inkling-explorer": {
       "fallbackModels": [
-        "google/gemini-2.5-flash",
-        "google/gemini-2.5-pro-preview",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/nemotron-3.5-lightning-free",
         "openrouter/minimax/minimax-m3:free",
+        "opencode/mimo-v2.5-free",
         "opencode/big-pickle"
       ]
     },
+    "test-engineer": {
+      "fallbackModels": [
+        "openrouter/deepseek/deepseek-chat",
+        "opencode/mimo-v2.5-free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/mistralai/mistral-small-3.2-24b-instruct:free",
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── ARCHITECTURE & ANALYSIS ──────────────────────────────────────────────
+    "m3-architect": {
+      "fallbackModels": [
+        "openrouter/minimax/minimax-m3:free",
+        "opencode/mimo-v2.5-free",
+        "openrouter/deepseek/deepseek-chat",
+        "opencode/nemotron-3-ultra-free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "sme": {
+      "fallbackModels": [
+        "openrouter/deepseek/deepseek-chat",
+        "opencode/mimo-v2.5-free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "researcher": {
+      "fallbackModels": [
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/meta/llama-3.3-70b:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "spec-writer": {
+      "fallbackModels": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── REVIEW & QUALITY CONTROL ─────────────────────────────────────────────
     "reviewer": {
       "fallbackModels": [
-        "google/gemini-2.5-pro-preview",
-        "google/gemini-2.5-flash",
-        "openrouter/minimax/minimax-m3:free",
+        "opencode/mimo-v2.5-free",
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "opencode/nemotron-3-ultra-free",
         "opencode/big-pickle"
       ]
     },
     "critic": {
       "fallbackModels": [
-        "google/gemini-2.5-pro-preview",
-        "google/gemini-2.5-flash",
+        "opencode/mimo-v2.5-free",
         "openrouter/minimax/minimax-m3:free",
+        "openrouter/deepseek/deepseek-chat",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "critic-sounding-board": {
+      "fallbackModels": [
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/muse-spark-1.3-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "critic-drift-verifier": {
+      "fallbackModels": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "critic-hallucination-verifier": {
+      "fallbackModels": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "critic-oversight": {
+      "fallbackModels": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "critic-architecture-supervisor": {
+      "fallbackModels": [
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "critic-finding-validator": {
+      "fallbackModels": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── DOCUMENTATION & DESIGN ───────────────────────────────────────────────
+    "docs": {
+      "fallbackModels": [
+        "opencode/muse-spark-1.3-free",
+        "opencode/muse-spark-1.2-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "docs-design": {
+      "fallbackModels": [
+        "opencode/muse-spark-1.3-free",
+        "opencode/muse-spark-1.2-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "designer": {
+      "fallbackModels": [
+        "opencode/muse-spark-1.3-free",
+        "opencode/muse-spark-1.2-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── CURATOR / META AGENTS ────────────────────────────────────────────────
+    "curator-init": {
+      "fallbackModels": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "curator-phase": {
+      "fallbackModels": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "curator-postmortem": {
+      "fallbackModels": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "curator-consolidation": {
+      "fallbackModels": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "opencode/big-pickle"
+      ]
+    },
+    "skill-improver": {
+      "fallbackModels": [
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/google/gemma-4-31b-it:free",
         "opencode/big-pickle"
       ]
     }

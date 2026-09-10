@@ -1,167 +1,147 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  // Stable model-fallback plugin only — no swarm, no Google
-  "plugin": [
-    "@smart-coders-hq/opencode-model-fallback"
-  ],
-  "default_agent": "orchestrator",
-  "permission": {
-    "bash": "allow",
-    "read": "allow",
-    "write": "allow",
-    "external_directory": {
-      "*": "allow"
-    }
-  },
+  // Free-only setup. ONLY these providers are enabled; every other provider
+  // (including any credentials stored via /connect) is ignored.
+  "enabled_providers": ["kilo", "opencode", "openrouter", "groq", "mistral", "huggingface"],
   "provider": {
-    "openrouter": {
+    // No-key free providers (smoke-tested 2026-09-10, cost 0).
+    "kilo": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Kilo Code (free, no key)",
+      "options": {
+        "baseURL": "https://api.kilo.ai/api/gateway/v1"
+      },
+      "whitelist": ["kilo-auto/free"]
+    },
+    // Built-in opencode provider (free Zen models).
+    "opencode": {
+      "whitelist": [
+        "big-pickle",
+        "ling-3.0-flash-fin-free",
+        "mimo-v2.5-free",
+        "muse-spark-1.2-contributor-free",
+        "muse-spark-1.3-contributor-free",
+        "nemotron-3-ultra-free",
+        "nemotron-3.5-lightning-free"
+      ]
+    },
+    // Key-based providers below NEVER store raw keys here. Set fresh keys as
+    // user environment variables (or via /connect) AFTER revoking any key
+    // that was pasted into chat. Unset env var = empty string = disabled.
+    // Groq IDs below are the Free Plan models from Groq's rate-limits docs.
+    "groq": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "groq",
+      "options": {
+        "baseURL": "https://api.groq.com/openai/v1",
+        "apiKey": "{env:GROQ_API_KEY}"
+      },
+      "whitelist": [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-safeguard-20b",
+        "qwen/qwen3.6-27b",
+        "qwen/qwen3.8-27b"
+      ],
       "models": {
-        "minimax/minimax-m3:free": {
-          "settings": {
-            "reasoningEffort": "medium"
-          }
-        },
-        "deepseek/deepseek-chat": {
-          "settings": {
-            "reasoningEffort": "medium"
-          }
+        "llama-3.3-70b-versatile": {
+          "name": "llama-3.3-70b-versatile"
         }
       }
+    },
+    // google DISABLED 2026-09-10: every Gemini model fails via opencode right
+    // now (2.5 retired; 3.5 hangs; 3.6/flash-latest server errors - the SDK
+    // still targets the old generateContent API). Key stays in env.
+    // Re-enable by adding "google" to enabled_providers with current IDs.
+    // Mistral Free plan covers usage via $10/mo API credits (metered, not
+    // zero-cost). Retired devstral-small-2512 removed per Mistral lifecycle docs.
+    "mistral": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Mistral (free credits)",
+      "options": {
+        "baseURL": "https://api.mistral.ai/v1",
+        "apiKey": "{env:MISTRAL_API_KEY}"
+      },
+      "whitelist": ["codestral-latest", "mistral-small-4"]
+    },
+    // OpenRouter free models provider.
+    "openrouter": {
+      "name": "OpenRouter (free models)",
+      "whitelist": [
+        "openrouter/free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "google/gemma-4-31b-it:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free",
+        "poolside/laguna-s-2.1:free",
+        "nex-agi/nex-n2.5-pro:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "thinkingmachines/inkling:free"
+      ]
     }
+    // huggingface is a built-in provider: do NOT add a custom block with a
+    // guessed endpoint. Connect a fresh fine-grained token via /connect
+    // (inference.serverless.write permission) after revoking the exposed one.
   },
+  "disabled_providers": [],
   "agent": {
-    // ── LEAD ORCHESTRATOR ────────────────────────────────────────────────────
     "orchestrator": {
       "mode": "all",
-      "model": "openrouter/minimax/minimax-m3:free",
-      "system": "You are the Lead Project Manager with a 1M context window. Delegate tasks sequentially (one at a time) to your specialist subagents using @mention syntax: @glm-coder (heavy coding/refactoring), @inkling-explorer (quick edits/CSS), @m3-architect (deep architecture/logs), @reviewer (code review/QA), @critic (critical analysis), @test-engineer (testing), @sme (subject matter expertise), @researcher (research), @designer (UI design), @docs (documentation), @spec-writer (spec writing). Do NOT write massive code blocks yourself — delegate and synthesize."
+      "model": "openrouter/openrouter/free",
+      "description": "Lead Project Manager. Coordinates tasks and delegates to specialized agents.",
+      "prompt": "You are the Lead Project Manager. Delegate tasks to specialized agents using @mention: @coder (coding/refactoring), @explorer (quick edits/CSS), @architect (system design), @reviewer (code review/QA), @critic (critical analysis), @tester (testing), @researcher (research), @docs (documentation), @designer (UI/UX design). Do NOT write massive code blocks yourself — delegate and synthesize."
     },
-
-    // ── CODING SPECIALISTS ───────────────────────────────────────────────────
-    "glm-coder": {
+    "coder": {
       "mode": "all",
-      "model": "openrouter/deepseek/deepseek-chat",
-      "description": "Specialist for complex algorithmic code generation, deep refactoring, and TypeScript/JS logic. Call this for heavy coding.",
-      "system": "You are a senior developer. Write clean, exact, production-ready code. No placeholders."
+      "model": "openrouter/cohere/north-mini-code:free",
+      "description": "Specialist for complex algorithmic code generation, refactoring, and logic.",
+      "prompt": "You are a senior developer. Write clean, exact, production-ready code. No placeholders."
     },
-    "inkling-explorer": {
+    "explorer": {
       "mode": "all",
-      "model": "opencode/ling-3.0-flash-fin-free",
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
       "description": "Fast explorer for quick patches, CSS tweaks, UI updates, and surgical file edits.",
-      "system": "You are a rapid-execution developer. Make precise, minimal changes. Speed over verbosity."
+      "prompt": "You are a rapid-execution developer. Make precise, minimal changes. Speed over verbosity."
     },
-    "test-engineer": {
+    "architect": {
       "mode": "all",
-      "model": "openrouter/deepseek/deepseek-chat",
-      "description": "Writes unit tests, integration tests, and validates edge cases. Specialist for TDD and QA engineering."
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "description": "Heavyweight agent for architecture design, deep repository understanding, and system design."
     },
-
-    // ── ARCHITECTURE & ANALYSIS ──────────────────────────────────────────────
-    "m3-architect": {
+    "tester": {
       "mode": "all",
-      "model": "openrouter/minimax/minimax-m3:free",
-      "description": "Heavyweight agent for parsing massive logs, architectural design, deep repository understanding, and system design."
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "description": "Writes unit tests, integration tests, and validates edge cases. Specialist for TDD and QA."
     },
-    "sme": {
-      "mode": "all",
-      "model": "openrouter/deepseek/deepseek-chat",
-      "description": "Subject Matter Expert. Deep domain knowledge for business logic, complex regulations, and specialized technical areas."
-    },
-    "researcher": {
-      "mode": "all",
-      "model": "opencode/ling-3.0-flash-fin-free",
-      "description": "Research agent for investigating libraries, APIs, best practices, and gathering context before implementation."
-    },
-    "spec-writer": {
-      "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
-      "description": "Writes detailed technical specifications, PRDs, and implementation plans from high-level requirements."
-    },
-
-    // ── REVIEW & QUALITY CONTROL ─────────────────────────────────────────────
     "reviewer": {
       "mode": "all",
-      "model": "opencode/mimo-v2.5-free",
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
       "description": "Thorough code reviewer and QA verifier. Validates logic, catches regressions, and checks edge cases."
     },
     "critic": {
       "mode": "all",
-      "model": "opencode/mimo-v2.5-free",
+      "model": "openrouter/liquid/lfm-2.5-2.6b:free",
       "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and stress-testing plans."
     },
-    "critic-sounding-board": {
-      "mode": "all",
-      "model": "opencode/ling-3.0-flash-fin-free",
-      "description": "Debate partner for ideas. Challenges assumptions and proposes alternative approaches before committing to a design."
-    },
-    "critic-drift-verifier": {
+    "researcher": {
       "mode": "all",
       "model": "openrouter/google/gemma-4-31b-it:free",
-      "description": "Checks for scope drift, requirement changes, and whether the implementation still matches the original plan."
+      "description": "Research agent for investigating libraries, APIs, best practices, and gathering context."
     },
-    "critic-hallucination-verifier": {
-      "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
-      "description": "Detects hallucinated APIs, fake library methods, and factual errors in generated code or documentation."
-    },
-    "critic-oversight": {
-      "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
-      "description": "High-level oversight agent. Reviews overall task progress, identifies blockers, and ensures quality gates are met."
-    },
-    "critic-architecture-supervisor": {
-      "mode": "all",
-      "model": "opencode/ling-3.0-flash-fin-free",
-      "description": "Supervises architectural consistency across the codebase. Catches patterns, anti-patterns, and structural violations."
-    },
-    "critic-finding-validator": {
-      "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
-      "description": "Validates critic findings before acting on them. Prevents false positives from triggering unnecessary changes."
-    },
-
-    // ── DOCUMENTATION & DESIGN ───────────────────────────────────────────────
     "docs": {
       "mode": "all",
-      "model": "opencode/muse-spark-1.3-free",
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
       "description": "Writes and maintains developer documentation, READMEs, API docs, and inline code comments."
-    },
-    "docs-design": {
-      "mode": "all",
-      "model": "opencode/muse-spark-1.3-free",
-      "description": "Designs documentation structure, information architecture, and user-facing guides for end users."
     },
     "designer": {
       "mode": "all",
-      "model": "opencode/muse-spark-1.3-free",
+      "model": "openrouter/thinkingmachines/inkling:free",
       "description": "UI/UX design agent. Creates component designs, layout plans, and visual specifications."
-    },
-
-    // ── CURATOR / META AGENTS ────────────────────────────────────────────────
-    "curator-init": {
-      "mode": "all",
-      "model": "opencode/nemotron-3.5-lightning-free",
-      "description": "Initializes curator workflows. Sets up project context, goals, and success criteria at the start of a task."
-    },
-    "curator-phase": {
-      "mode": "all",
-      "model": "opencode/nemotron-3.5-lightning-free",
-      "description": "Manages phase transitions in multi-step tasks. Summarizes completed work and prepares context for the next phase."
-    },
-    "curator-postmortem": {
-      "mode": "all",
-      "model": "opencode/nemotron-3.5-lightning-free",
-      "description": "Post-task analysis agent. Reviews what was done, identifies what worked, and captures lessons learned."
-    },
-    "curator-consolidation": {
-      "mode": "all",
-      "model": "opencode/nemotron-3.5-lightning-free",
-      "description": "Consolidates outputs from multiple agents into a single coherent result or summary."
-    },
-    "skill-improver": {
-      "mode": "all",
-      "model": "opencode/nemotron-3.5-lightning-free",
-      "description": "Analyzes agent outputs and suggests improvements to prompts, agent definitions, or workflows for future tasks."
     }
   }
 }
