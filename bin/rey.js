@@ -22,6 +22,16 @@ if (args.includes('--install') || args.includes('install')) {
     const child = spawn('bash', [installScript], { stdio: 'inherit' });
     child.on('exit', (code) => process.exit(code || 0));
   }
+} else if (args.includes('--health') || args.includes('health')) {
+  const healthScript = path.join(rootDir, 'scripts', 'rey-health.py');
+  const pythonCmd = isWin ? 'python' : 'python3';
+  const child = spawn(pythonCmd, [healthScript, ...args.filter(a => a !== 'health' && a !== '--health')], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+} else if (args.includes('--override') || args.includes('override')) {
+  const overrideScript = path.join(rootDir, 'scripts', 'rey-override.py');
+  const pythonCmd = isWin ? 'python' : 'python3';
+  const child = spawn(pythonCmd, [overrideScript, ...args.filter(a => a !== 'override' && a !== '--override')], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
 } else {
   if (isWin) {
     const monitorScript = path.join(rootDir, 'scripts', 'rey-monitor.ps1');

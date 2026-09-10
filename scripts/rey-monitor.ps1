@@ -47,6 +47,7 @@ $script:punchTick       = 0
 $script:lastPunchFrame  = -999
 $script:lastW           = 0
 $script:lastH           = 0
+$script:lastHealthCheck = [DateTime]::Now
 $logs = New-Object System.Collections.Generic.List[string]
 
 function Add-Log([string]$msg) {
@@ -186,11 +187,20 @@ function Refresh-Status {
             $currState = [string]$s.state
 
             $shortId = Safe-Sub $sid 0 12
-            if (($currState -eq 'WORKING') -and ($prevState -ne 'WORKING')) {
-              Add-Log ('thread ' + $shortId + ' THINKING: ' + (Shorten $s.title 35))
-            }
-            if (($currState -eq 'DONE') -and ($prevState -eq 'WORKING')) {
-              Add-Log ('thread ' + $shortId + ' DONE cost=' + $s.cost)
+            if ($sid -eq 'ses_watchdog') {
+              if (($currState -eq 'WORKING') -and ($prevState -ne 'WORKING')) {
+                Add-Log '[HEALTH] fleet check started'
+              }
+              if (($currState -eq 'DONE') -and ($prevState -eq 'WORKING')) {
+                Add-Log ('[HEALTH] ' + (Shorten $s.title 40))
+              }
+            } else {
+              if (($currState -eq 'WORKING') -and ($prevState -ne 'WORKING')) {
+                Add-Log ('thread ' + $shortId + ' THINKING: ' + (Shorten $s.title 35))
+              }
+              if (($currState -eq 'DONE') -and ($prevState -eq 'WORKING')) {
+                Add-Log ('thread ' + $shortId + ' DONE cost=' + $s.cost)
+              }
             }
 
             $script:threadCache[$sid] = $s
@@ -258,7 +268,20 @@ function Refresh-Status {
   }
 
   if ($ok) {
-    $state.Health = 'ALL SYSTEMS NOMINAL'
+    if ($dbData -and $dbData.model_health) {
+      $mh = $dbData.model_health
+      if ($mh.running) {
+        $state.Health = 'CHECKING FLEET HEALTH...'
+      } elseif ($mh.unresponsive_count -gt 0) {
+        $state.Health = "DEGRADED ($($mh.unresponsive_count) UNRESPONSIVE)"
+      } elseif ($mh.new_models_count -gt 0) {
+        $state.Health = "NOMINAL (+$($mh.new_models_count) NEW FREE)"
+      } else {
+        $state.Health = 'ALL SYSTEMS NOMINAL'
+      }
+    } else {
+      $state.Health = 'ALL SYSTEMS NOMINAL'
+    }
   } else {
     $state.Health = 'DEGRADED - CHECK LOG'
   }
@@ -523,7 +546,7 @@ function Draw([int]$frame, [bool]$working) {
     $level = [Math]::Max(0, [Math]::Min(20, $level))
     $bar = ('#' * $level).PadRight(20, '.')
 
-    $healthColor = if ($state.Health -eq 'ALL SYSTEMS NOMINAL') { 'Green' } else { 'Red' }
+    $healthColor = if ($state.Health -like '*NOMINAL*') { 'Green' } elseif ($state.Health -like '*CHECKING*') { 'Yellow' } else { 'Red' }
     $actColor    = if ($working) { 'Yellow' } else { 'Green' }
     $tag         = if ($working) { '[ THINKING ]' } else { '[ STANDBY ]' }
     $headColor   = if ($working) { 'Yellow' } else { 'Cyan' }
@@ -554,7 +577,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: tokens | O: override)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | O: override | H: health)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -735,8 +758,41 @@ try {
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
+          if ($key.Key -eq 'H') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $pyHealth = Join-Path $scriptDir 'rey-health.py'
+            if (-not (Test-Path $pyHealth)) {
+              $pyHealth = Join-Path $HOME '.config\opencode\scripts\rey-health.py'
+            }
+            if (Test-Path $pyHealth) {
+              & python "$pyHealth"
+              Write-Host ""
+              Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
+              try { [Console]::ReadKey($true) | Out-Null } catch { }
+            }
+            $script:lastHealthCheck = [DateTime]::Now
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
         }
       } catch { }
+    }
+
+    # 30-minute background health & discovery watchdog
+    if (((Get-Date) - $script:lastHealthCheck).TotalMinutes -ge 30) {
+      $script:lastHealthCheck = Get-Date
+      $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+      $pyHealth = Join-Path $scriptDir 'rey-health.py'
+      if (-not (Test-Path -LiteralPath $pyHealth)) {
+        $pyHealth = Join-Path $HOME '.config\opencode\scripts\rey-health.py'
+      }
+      if (Test-Path -LiteralPath $pyHealth) {
+        Start-Process -FilePath "python" -ArgumentList "`"$pyHealth`"", "--quiet" -WindowStyle Hidden
+        Add-Log "[HEALTH] 30m background watchdog started"
+      }
     }
 
     if (($frame % $REFRESH_EVERY) -eq 0 -and $frame -ne 0) {

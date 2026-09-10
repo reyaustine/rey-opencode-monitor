@@ -299,6 +299,60 @@ def get_state():
         result['ok'] = False
         result['error'] = str(e)
 
+    # Check model health watchdog status and inject into subagents table
+    try:
+        user_home = os.path.expanduser('~')
+        health_path = os.path.join(user_home, '.config', 'opencode', 'model-health.json')
+        result['model_health'] = None
+        if os.path.exists(health_path):
+            with open(health_path, 'r', encoding='utf-8') as hf:
+                hdata = json.load(hf)
+                result['model_health'] = hdata
+                is_running = bool(hdata.get('running', False))
+                now_ms = int(time.time() * 1000)
+                h_ts = hdata.get('timestamp', now_ms)
+                h_age_s = max(0.0, (now_ms - h_ts) / 1000.0)
+
+                if is_running:
+                    result['sessions'].insert(0, {
+                        'id': 'ses_watchdog',
+                        'short_id': 'watchdog',
+                        'title': '[HEALTH] Pinging free fleet models & discovering updates...',
+                        'workspace': 'Fleet',
+                        'directory': '',
+                        'agent': 'watchdog',
+                        'model': 'discovery/free',
+                        'cost': 0.0,
+                        'state': 'WORKING',
+                        'age_s': round(h_age_s, 1),
+                        'updated_ms': h_ts
+                    })
+                elif h_age_s < 3600:  # Active within the last hour
+                    resp_cnt = hdata.get('responsive_count', 0)
+                    tot_cnt = resp_cnt + hdata.get('unresponsive_count', 0)
+                    new_cnt = hdata.get('new_models_count', 0)
+                    dur_ms = hdata.get('duration_ms', 0)
+                    htitle = f"[HEALTH] {resp_cnt}/{tot_cnt} models responsive"
+                    if new_cnt > 0:
+                        htitle += f" (+{new_cnt} new free)"
+                    htitle += f" ({dur_ms}ms)"
+
+                    result['sessions'].insert(0, {
+                        'id': 'ses_watchdog',
+                        'short_id': 'watchdog',
+                        'title': htitle,
+                        'workspace': 'Fleet',
+                        'directory': '',
+                        'agent': 'watchdog',
+                        'model': 'discovery/free',
+                        'cost': 0.0,
+                        'state': 'DONE',
+                        'age_s': round(h_age_s, 1),
+                        'updated_ms': h_ts
+                    })
+    except Exception:
+        pass
+
     return result
 
 if __name__ == '__main__':

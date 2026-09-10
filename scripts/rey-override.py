@@ -3,6 +3,7 @@
 R.E.Y. // Model Override Engine
 Enforces a chosen default model across OpenCode global configs, SQLite sessions,
 and desktop IDE preferences, overriding whatever was selected in the IDE.
+Zero manual typing: Page 1 (Top 7) + Page 2 (Options A-T for all 28 models).
 """
 
 import sys
@@ -23,7 +24,8 @@ OVERRIDE_LOCK = os.path.join(CONFIG_DIR, "override-lock.json")
 DB_PATH = os.path.join(HOME, ".local", "share", "opencode", "opencode.db")
 DESKTOP_DIR = os.path.join(os.environ.get("APPDATA", ""), "ai.opencode.desktop")
 
-PRESET_MODELS = {
+# Page 1: Top Recommended Fleet Models
+PAGE1_MODELS = {
     "1": ("openrouter/cohere/north-mini-code:free", "openrouter", "Cohere North Mini Code (Free)"),
     "2": ("openrouter/nvidia/nemotron-3.5-lightning:free", "openrouter", "NVIDIA Nemotron 3.5 Lightning (Free)"),
     "3": ("openrouter/google/gemma-4-31b-it:free", "openrouter", "Google Gemma-4 31B (Free)"),
@@ -31,6 +33,30 @@ PRESET_MODELS = {
     "5": ("kilo/kilo-auto/free", "kilo", "Kilo Code Auto (Free, No Key)"),
     "6": ("groq/qwen/qwen3.8-27b", "groq", "Groq Qwen 3.8 27B (Free)"),
     "7": ("openrouter/poolside/laguna-xs-2.1:free", "openrouter", "Poolside Laguna-XS 2.1 (Free)")
+}
+
+# Page 2: Extended Allowlisted Fleet Models (Zero typing, select by letter)
+PAGE2_MODELS = {
+    "A": ("openrouter/google/gemma-4-26b-a4b-it:free", "openrouter", "Google Gemma-4 26B A4B (Free)"),
+    "B": ("openrouter/inclusionai/ling-3.0-flash-fin:free", "openrouter", "InclusionAI Ling 3.0 Flash Fin (Free)"),
+    "C": ("openrouter/inclusionai/ling-3.0-flash-sante:free", "openrouter", "InclusionAI Ling 3.0 Flash Sante (Free)"),
+    "D": ("openrouter/liquid/lfm-2.5-2.6b:free", "openrouter", "Liquid LFM 2.5 2.6B (Free)"),
+    "E": ("openrouter/nex-agi/nex-n2.5-pro:free", "openrouter", "Nex-AGI Nex N2.5 Pro (Free)"),
+    "F": ("openrouter/nvidia/nemotron-3-super-120b-a12b:free", "openrouter", "NVIDIA Nemotron 3 Super 120B (Free)"),
+    "G": ("openrouter/nvidia/nemotron-3-ultra-550b-a55b:free", "openrouter", "NVIDIA Nemotron 3 Ultra 550B (Free)"),
+    "H": ("openrouter/poolside/laguna-s-2.1:free", "openrouter", "Poolside Laguna-S 2.1 (Free)"),
+    "I": ("openrouter/thinkingmachines/inkling:free", "openrouter", "ThinkingMachines Inkling (Free)"),
+    "J": ("groq/openai/gpt-oss-120b", "groq", "Groq GPT OSS 120B (Free)"),
+    "K": ("groq/openai/gpt-oss-20b", "groq", "Groq GPT OSS 20B (Free)"),
+    "L": ("groq/openai/gpt-oss-safeguard-20b", "groq", "Groq GPT OSS Safeguard 20B (Free)"),
+    "M": ("groq/qwen/qwen3.6-27b", "groq", "Groq Qwen 3.6 27B (Free)"),
+    "N": ("mistral/codestral-latest", "mistral", "Mistral Codestral Latest (Free Credits)"),
+    "O": ("mistral/mistral-small-4", "mistral", "Mistral Small 4 (Free Credits)"),
+    "P": ("opencode/big-pickle", "opencode", "OpenCode Big Pickle (Local Free)"),
+    "Q": ("opencode/nemotron-3.5-lightning-free", "opencode", "OpenCode Nemotron 3.5 Lightning (Free)"),
+    "R": ("opencode/nemotron-3-ultra-free", "opencode", "OpenCode Nemotron 3 Ultra (Free)"),
+    "S": ("opencode/ling-3.0-flash-fin-free", "opencode", "OpenCode Ling 3.0 Flash Fin (Free)"),
+    "T": ("opencode/mimo-v2.5-free", "opencode", "OpenCode Mimo v2.5 (Free)")
 }
 
 def parse_model_string(model_str):
@@ -158,11 +184,39 @@ def clear_override():
     else:
         print("[i] No active model override was set.")
 
+def show_page2():
+    """Page 2: Full listing of remaining 20 allowlisted models (zero manual typing)."""
+    print("\n" + "=" * 75)
+    print(" R.E.Y. MODEL OVERRIDE - PAGE 2: ALL ALLOWLISTED FLEET MODELS (ZERO TYPING)")
+    print("=" * 75)
+
+    for k, (model_id, prov, desc) in sorted(PAGE2_MODELS.items()):
+        print(f" [{k}] {desc}")
+        print(f"     ID: {model_id}")
+    print("-" * 75)
+    print(" [0] Return to Page 1")
+    print("=" * 75)
+
+    try:
+        choice = input("\n Select model [A-T] or 0 to go back: ").strip().upper()
+    except (KeyboardInterrupt, EOFError):
+        print("\nCancelled.")
+        return
+
+    if choice == "0" or not choice:
+        interactive_menu()
+        return
+    elif choice in PAGE2_MODELS:
+        selected_model = PAGE2_MODELS[choice][0]
+        set_override(selected_model)
+    else:
+        print("Invalid choice.")
+
 def interactive_menu():
-    """CLI interactive model picker."""
-    print("\n" + "=" * 70)
+    """CLI interactive model picker (Page 1: Top 7 + Option 8 for Page 2)."""
+    print("\n" + "=" * 75)
     print(" R.E.Y. MODEL OVERRIDE CONTROLLER (Enforces Model on OpenCode IDE)")
-    print("=" * 70)
+    print("=" * 75)
     
     current_lock = None
     if os.path.exists(OVERRIDE_LOCK):
@@ -176,15 +230,15 @@ def interactive_menu():
         print(f" CURRENT ACTIVE OVERRIDE: {current_lock} [LOCKED]")
     else:
         print(" CURRENT ACTIVE OVERRIDE: None (using config default)")
-    print("-" * 70)
+    print("-" * 75)
 
-    for k, (model_id, prov, desc) in sorted(PRESET_MODELS.items()):
+    for k, (model_id, prov, desc) in sorted(PAGE1_MODELS.items()):
         print(f" [{k}] {desc}")
-        print(f"     Model ID: {model_id}")
-    print(" [8] Custom Model ID (enter any allowlisted model string)")
+        print(f"     ID: {model_id}")
+    print(" [8] View Other Allowlisted Models (Page 2: Options A-T, Zero Typing)")
     print(" [9] Clear / Remove Override")
     print(" [0] Cancel (Keep current)")
-    print("=" * 70)
+    print("=" * 75)
 
     try:
         choice = input("\n Select option [0-9]: ").strip()
@@ -195,15 +249,11 @@ def interactive_menu():
     if choice == "0" or not choice:
         print("Cancelled.")
         return
-    elif choice in PRESET_MODELS:
-        selected_model = PRESET_MODELS[choice][0]
+    elif choice in PAGE1_MODELS:
+        selected_model = PAGE1_MODELS[choice][0]
         set_override(selected_model)
     elif choice == "8":
-        custom = input(" Enter exact model string (e.g. openrouter/poolside/laguna-s-2.1:free): ").strip()
-        if custom:
-            set_override(custom)
-        else:
-            print("Cancelled: empty input.")
+        show_page2()
     elif choice == "9":
         clear_override()
     else:
@@ -216,6 +266,8 @@ if __name__ == "__main__":
             clear_override()
         elif arg in ("--menu", "-m", "menu"):
             interactive_menu()
+        elif arg in ("--page2", "-p2", "page2"):
+            show_page2()
         else:
             set_override(arg)
     else:

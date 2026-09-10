@@ -314,7 +314,8 @@ class ReyMonitor:
             'token_models': [],
             'last_refresh': 'never'
         }
-        self.add_log('R.E.Y. monitor initialized (macOS / cross-platform)')
+        self.last_health_check = time.time()
+        self.add_log('R.E.Y. monitor initialized (cross-platform)')
 
     def add_log(self, msg):
         ts = time.strftime('%H:%M:%S')
@@ -391,6 +392,7 @@ class ReyMonitor:
                 out = subprocess.check_output([sys.executable, py_script], stderr=subprocess.DEVNULL)
                 db_data = json.loads(out.decode('utf-8'))
 
+            if db_data and db_data.get('ok'):
                 self.state['thread_count'] = int(db_data.get('active_threads', 0))
                 self.state['workspace'] = str(db_data.get('current_workspace', '-'))
                 if db_data.get('override_model'):
@@ -411,10 +413,16 @@ class ReyMonitor:
                     curr_state = s.get('state', 'DONE')
 
                     short_id = safe_sub(sid, 0, 12)
-                    if curr_state == 'WORKING' and prev_state != 'WORKING':
-                        self.add_log(f"thread {short_id} THINKING: " + shorten(s.get('title', ''), 35))
-                    if curr_state == 'DONE' and prev_state == 'WORKING':
-                        self.add_log(f"thread {short_id} DONE cost={s.get('cost', 0)}")
+                    if sid == 'ses_watchdog':
+                        if curr_state == 'WORKING' and prev_state != 'WORKING':
+                            self.add_log('[HEALTH] fleet check started')
+                        if curr_state == 'DONE' and prev_state == 'WORKING':
+                            self.add_log(f"[HEALTH] {shorten(s.get('title', ''), 40)}")
+                    else:
+                        if curr_state == 'WORKING' and prev_state != 'WORKING':
+                            self.add_log(f"thread {short_id} THINKING: " + shorten(s.get('title', ''), 35))
+                        if curr_state == 'DONE' and prev_state == 'WORKING':
+                            self.add_log(f"thread {short_id} DONE cost={s.get('cost', 0)}")
 
                     self.thread_cache[sid] = s
 
@@ -432,7 +440,7 @@ class ReyMonitor:
                     self.state['token_models'] = tdata.get('models', [])
             else:
                 ok = False
-                self.add_log('db query err: ' + shorten(db_data.get('error', ''), 35))
+                self.add_log('db query err: ' + shorten(db_data.get('error', '') if db_data else 'none', 35))
         except Exception as e:
             ok = False
             self.add_log('session sync FAILED: ' + shorten(str(e), 35))
@@ -491,7 +499,21 @@ class ReyMonitor:
         else:
             self.state['activity'] = 'IDLE'
 
-        self.state['health'] = 'ALL SYSTEMS NOMINAL' if ok else 'DEGRADED - CHECK LOG'
+        if ok:
+            mh = db_data.get('model_health') if ('db_data' in locals() and db_data) else None
+            if mh:
+                if mh.get('running'):
+                    self.state['health'] = 'CHECKING FLEET HEALTH...'
+                elif mh.get('unresponsive_count', 0) > 0:
+                    self.state['health'] = f"DEGRADED ({mh['unresponsive_count']} UNRESPONSIVE)"
+                elif mh.get('new_models_count', 0) > 0:
+                    self.state['health'] = f"NOMINAL (+{mh['new_models_count']} NEW FREE)"
+                else:
+                    self.state['health'] = 'ALL SYSTEMS NOMINAL'
+            else:
+                self.state['health'] = 'ALL SYSTEMS NOMINAL'
+        else:
+            self.state['health'] = 'DEGRADED - CHECK LOG'
         self.state['last_refresh'] = time.strftime('%H:%M:%S')
 
     def draw(self, frame):
@@ -510,7 +532,7 @@ class ReyMonitor:
         level = max(0, min(20, level))
         bar = ('#' * level).ljust(20, '.')
 
-        health_color = GREEN if self.state['health'] == 'ALL SYSTEMS NOMINAL' else RED
+        health_color = GREEN if 'NOMINAL' in self.state['health'] else (YELLOW if 'CHECKING' in self.state['health'] else RED)
         act_color = YELLOW if working else GREEN
         tag = '[ THINKING ]' if working else '[ STANDBY ]'
         head_color = YELLOW if working else CYAN
@@ -540,7 +562,7 @@ class ReyMonitor:
             (f"   activity      : {self.state['activity']}", act_color),
             (f"   status        : {self.state['health']}", health_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
-            (f"   last refresh  : {self.state['last_refresh']}   (Q: quit | T: tokens | O: override)", GRAY),
+            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | O: override | H: health)", GRAY),
         ]
 
         if cols >= 95:
@@ -693,6 +715,35 @@ class ReyMonitor:
                         sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
                         sys.stdout.flush()
                         self.refresh_status()
+                    elif ch.lower() == 'h':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import rey_health
+                            rey_health.run_health_check(quiet=False)
+                        except Exception:
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-health.py")])
+                        print("\n  Press Enter to return to R.E.Y. Monitor...")
+                        try:
+                            input()
+                        except Exception:
+                            pass
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.last_health_check = time.time()
+                        self.refresh_status()
+
+                # 30-minute background health & discovery watchdog
+                if (time.time() - self.last_health_check) >= 1800:
+                    self.last_health_check = time.time()
+                    import subprocess
+                    health_script = os.path.join(SCRIPT_DIR, "rey-health.py")
+                    if os.path.exists(health_script):
+                        subprocess.Popen([sys.executable, health_script, "--quiet"])
+                        self.add_log("[HEALTH] 30m background watchdog started")
 
                 if frame > 0 and (frame % REFRESH_EVERY) == 0:
                     self.refresh_status()
