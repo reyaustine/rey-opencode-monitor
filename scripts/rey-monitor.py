@@ -26,6 +26,7 @@ RED = "\033[31m"
 MAGENTA = "\033[35m"
 WHITE = "\033[37m"
 GRAY = "\033[90m"
+CHASSIS = "\033[90m"
 DARK_CYAN = "\033[36m"
 CLEAR_SCREEN = "\033[2J"
 CURSOR_HOME = "\033[H"
@@ -77,6 +78,76 @@ def safe_sub(text, start, length):
     if not text or start >= len(text):
         return ''
     return text[start:start + length]
+
+def get_robot_lines(frame, is_working, task_title, health_ok):
+    spinners = ["|", "/", "-", "\\"]
+    mouths = ["▄  ", " ▄ ", "  ▄", " ▄ "]
+
+    if not health_ok:
+        ant, lb, rb, le, re, mth = "☡", "╲", "╱", "✖", "✖", "▃▃▃"
+        glow, mood, status_text = RED, "ALERT", "Check error log!"
+    elif is_working:
+        t_low = (task_title or "").lower()
+        if any(k in t_low for k in ["fix", "bug", "issue", "error"]):
+            ant, lb, rb, le, re, mth = "⚡", "╲", "╱", "•", "•", "╰━╯"
+            glow, mood, status_text = YELLOW, "DEBUG", "Fixing issue..."
+        elif any(k in t_low for k in ["test", "verify", "qa", "check"]):
+            ant, lb, rb, le, re, mth = "⚇", "─", "─", "◎", "◎", mouths[frame % 4]
+            glow, mood, status_text = CYAN, "TESTING", "Verifying..."
+        elif any(k in t_low for k in ["build", "code", "refactor"]):
+            ant, lb, rb, le, re, mth = "⚙", "─", "─", "[", "]", "━━━"
+            glow, mood, status_text = GREEN, "CODING", "Synthesizing..."
+        elif any(k in t_low for k in ["review", "architect", "research"]):
+            ant, lb, rb, le, re, mth = "⌖", "╭", "─", "◉", "◯", "───"
+            glow, mood, status_text = MAGENTA, "ANALYZE", "Deep thinking..."
+        else:
+            ant, lb, rb, le, re, mth = spinners[frame % 4], "─", "╱", "◯", "◉", mouths[frame % 4]
+            glow, mood, status_text = YELLOW, "THINKING", "Processing task..."
+    else:
+        cycle = (frame // 25) % 5
+        sub_tick = frame % 25
+        if cycle == 0:
+            ant, lb, rb, mth, glow, mood = "⚇", "─", "─", "───", CYAN, "LOOK"
+            if sub_tick < 7:
+                le, re, status_text = "◖", "◖", "Scanning left..."
+            elif sub_tick < 14:
+                le, re, status_text = "◉", "◉", "Standing by..."
+            elif sub_tick < 20:
+                le, re, status_text = "◗", "◗", "Scanning right..."
+            else:
+                le, re, status_text = "◉", "◉", "Standing by..."
+        elif cycle == 1:
+            ant, lb, rb, le, re, mth = "☼", "╭", "╮", "^", "^", "╰━╯"
+            glow, mood, status_text = GREEN, "HAPPY", "All nominal!"
+        elif cycle == 2:
+            ant, lb, rb, mth = "z", "─", "─", "───"
+            le = re = "─" if (frame % 8 < 4) else "˘"
+            glow, mood, status_text = DIM, "SLEEPY", "Low power mode..."
+        elif cycle == 3:
+            ant, lb, rb, le, re, mth = "⚇", "^", "─", "◖", "◉", " ▱ "
+            glow, mood, status_text = MAGENTA, "CURIOUS", "Awaiting task..."
+        else:
+            ant, lb, rb, mth = "★", "╭", "─", "╰━╯"
+            le, re = "^", ("◉" if (frame % 10 < 7) else "^")
+            glow, mood, status_text = GREEN, "WINK", "Ready for work!"
+
+    st_trunc = (status_text[:22]).ljust(22)
+    mth_center = mth.center(3)
+
+    return [
+        f"{CHASSIS}┌── {glow}R.E.Y. BOT{CHASSIS} ─ [{glow}{mood:<7}{CHASSIS}]─┐{RESET}",
+        f"{CHASSIS}│         ╭───╮            │{RESET}",
+        f"{CHASSIS}│         │ {glow}{ant}{CHASSIS} │            │{RESET}",
+        f"{CHASSIS}│       ╭─┴───┴─╮          │{RESET}",
+        f"{CHASSIS}│      ╱         ╲         │{RESET}",
+        f"{CHASSIS}│     │   {glow}{lb}   {rb}{CHASSIS}   │        │{RESET}",
+        f"{CHASSIS}│     │   {glow}{le}   {re}{CHASSIS}   │        │{RESET}",
+        f"{CHASSIS}│     │           │        │{RESET}",
+        f"{CHASSIS}│     │    {glow}{mth_center}{CHASSIS}    │        │{RESET}",
+        f"{CHASSIS}│      ╲         ╱         │{RESET}",
+        f"{CHASSIS}│       ╰───────╯          │{RESET}",
+        f"{CHASSIS}└─ {WHITE}{st_trunc}{CHASSIS} ─┘{RESET}"
+    ]
 
 class KeyReader:
     def __init__(self):
@@ -342,18 +413,39 @@ class ReyMonitor:
         lines.append(row('  ' + '=' * 62, head_color))
         lines.append(row(f"   R.E.Y.  //  RUNTIME EXECUTION & YIELD MONITOR  {tag} [ {spin} ] [{bar}]", head_color))
         lines.append(row('  ' + '=' * 62, head_color))
-        lines.append(row(f"   opencode IDE  : {self.state['ide_status']}", self.state['ide_color']))
-        lines.append(row(f"   workspace     : {self.state['workspace']}", WHITE))
-        lines.append(row(f"   default model : {self.state['default_model']}", WHITE))
-        lines.append(row(f"   small model   : {self.state['small_model']}", WHITE))
-        lines.append(row(f"   providers     : {self.state['providers']}", WHITE))
-        lines.append(row(f"   models visible: {self.state['model_count']}", WHITE))
-        lines.append(row(f"   opencode      : {self.state['version']}", WHITE))
-        lines.append(row(f"   active threads: {self.state['thread_count']}", MAGENTA))
-        lines.append(row(f"   activity      : {self.state['activity']}", act_color))
-        lines.append(row(f"   status        : {self.state['health']}", health_color))
-        lines.append(row(f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN))
-        lines.append(row(f"   last refresh  : {self.state['last_refresh']}   (Q: quit | T: toggle model tokens)", GRAY))
+        sys_items = [
+            (f"   opencode IDE  : {self.state['ide_status']}", self.state['ide_color']),
+            (f"   workspace     : {self.state['workspace']}", WHITE),
+            (f"   default model : {self.state['default_model']}", WHITE),
+            (f"   small model   : {self.state['small_model']}", WHITE),
+            (f"   providers     : {self.state['providers']}", WHITE),
+            (f"   models visible: {self.state['model_count']}", WHITE),
+            (f"   opencode      : {self.state['version']}", WHITE),
+            (f"   active threads: {self.state['thread_count']}", MAGENTA),
+            (f"   activity      : {self.state['activity']}", act_color),
+            (f"   status        : {self.state['health']}", health_color),
+            (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
+            (f"   last refresh  : {self.state['last_refresh']}   (Q: quit | T: toggle model tokens)", GRAY),
+        ]
+
+        if cols >= 95:
+            active_task_title = ""
+            for t in self.thread_cache.values():
+                if t.get('state') == 'WORKING':
+                    active_task_title = t.get('title', '')
+                    break
+            health_ok = (self.state['health'] == 'ALL SYSTEMS NOMINAL')
+            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok)
+
+            for idx, (txt, col) in enumerate(sys_items):
+                left_part = (txt[:65]).ljust(65)
+                c_left = f"{col}{left_part}{RESET}"
+                bot_line = robot_lines[idx]
+                trailing = ' ' * max(0, max_w - 95)
+                lines.append(f"{c_left}  {bot_line}{trailing}")
+        else:
+            for txt, col in sys_items:
+                lines.append(row(txt, col))
 
         if self.view_mode == 'TOKENS':
             # --- TOKENS VIEW ---

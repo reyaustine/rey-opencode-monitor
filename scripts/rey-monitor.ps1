@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -7,6 +7,8 @@
   Global scope: monitors ~/.config/opencode, tracks OpenCode IDE and all workspaces.
 #>
 param()
+
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
 $ErrorActionPreference = 'Continue'
 $TICK_MS       = 200
@@ -282,6 +284,122 @@ function Write-Row([int]$row, [string]$text, [string]$color) {
   }
 }
 
+function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$taskTitle, [bool]$healthOk) {
+  $spinners = @('|', '/', '-', '\')
+  $mouths   = @('▄  ', ' ▄ ', '  ▄', ' ▄ ')
+
+  $ant = '|'; $lb = '─'; $rb = '─'; $le = '◉'; $re = '◉'; $mth = '───'
+  $glow = 'Yellow'; $mood = 'STANDBY'; $status = 'Standing by...'
+
+  if (-not $healthOk) {
+    $ant = '☡'; $lb = '╲'; $rb = '╱'; $le = '✖'; $re = '✖'; $mth = '▃▃▃'
+    $glow = 'Red'; $mood = 'ALERT'; $status = 'Check error log!'
+  } elseif ($working) {
+    $tLow = ($taskTitle + '').ToLower()
+    if ($tLow -match 'fix|bug|issue|error') {
+      $ant = '⚡'; $lb = '╲'; $rb = '╱'; $le = '•'; $re = '•'; $mth = '╰━╯'
+      $glow = 'Yellow'; $mood = 'DEBUG'; $status = 'Fixing issue...'
+    } elseif ($tLow -match 'test|verify|qa|check') {
+      $ant = '⚇'; $lb = '─'; $rb = '─'; $le = '◎'; $re = '◎'; $mth = $mouths[$frame % 4]
+      $glow = 'Cyan'; $mood = 'TESTING'; $status = 'Verifying...'
+    } elseif ($tLow -match 'build|code|refactor') {
+      $ant = '⚙'; $lb = '─'; $rb = '─'; $le = '['; $re = ']'; $mth = '━━━'
+      $glow = 'Green'; $mood = 'CODING'; $status = 'Synthesizing...'
+    } elseif ($tLow -match 'review|architect|research') {
+      $ant = '⌖'; $lb = '╭'; $rb = '─'; $le = '◉'; $re = '◯'; $mth = '───'
+      $glow = 'Magenta'; $mood = 'ANALYZE'; $status = 'Deep thinking...'
+    } else {
+      $ant = $spinners[$frame % 4]; $lb = '─'; $rb = '╱'; $le = '◯'; $re = '◉'; $mth = $mouths[$frame % 4]
+      $glow = 'Yellow'; $mood = 'THINKING'; $status = 'Processing task...'
+    }
+  } else {
+    $cycle = [int](($frame / 25) % 5)
+    $subTick = $frame % 25
+    if ($cycle -eq 0) {
+      $ant = '⚇'; $lb = '─'; $rb = '─'; $mth = '───'; $glow = 'Cyan'; $mood = 'LOOK'
+      if ($subTick -lt 7) { $le = '◖'; $re = '◖'; $status = 'Scanning left...' }
+      elseif ($subTick -lt 14) { $le = '◉'; $re = '◉'; $status = 'Standing by...' }
+      elseif ($subTick -lt 20) { $le = '◗'; $re = '◗'; $status = 'Scanning right...' }
+      else { $le = '◉'; $re = '◉'; $status = 'Standing by...' }
+    } elseif ($cycle -eq 1) {
+      $ant = '☼'; $lb = '╭'; $rb = '╮'; $le = '^'; $re = '^'; $mth = '╰━╯'
+      $glow = 'Green'; $mood = 'HAPPY'; $status = 'All nominal!'
+    } elseif ($cycle -eq 2) {
+      $ant = 'z'; $lb = '─'; $rb = '─'; $mth = '───'
+      $le = if (($frame % 8) -lt 4) { '─' } else { '˘' }
+      $re = $le; $glow = 'DarkGray'; $mood = 'SLEEPY'; $status = 'Low power mode...'
+    } elseif ($cycle -eq 3) {
+      $ant = '⚇'; $lb = '^'; $rb = '─'; $le = '◖'; $re = '◉'; $mth = ' ▱ '
+      $glow = 'Magenta'; $mood = 'CURIOUS'; $status = 'Awaiting task...'
+    } else {
+      $ant = '★'; $lb = '╭'; $rb = '─'; $mth = '╰━╯'
+      $le = '^'; $re = if (($frame % 10) -lt 7) { '◉' } else { '^' }
+      $glow = 'Green'; $mood = 'WINK'; $status = 'Ready for work!'
+    }
+  }
+
+  $stTrunc = if ($status.Length -gt 22) { $status.Substring(0, 22) } else { $status.PadRight(22) }
+  $mthFmt = ("{0,3}" -f $mth)
+
+  switch ($lineIndex) {
+    0  { return @{ Pre = "┌── "; Mid = "R.E.Y. BOT"; MidColor = $glow; Sep = " ─ ["; Text = ("{0,-7}" -f $mood); TextColor = $glow; Post = "]─┐" } }
+    1  { return @{ Pre = "│         ╭───╮            │"; Mid = ""; Post = "" } }
+    2  { return @{ Pre = "│         │ "; Mid = $ant; MidColor = $glow; Post = " │            │" } }
+    3  { return @{ Pre = "│       ╭─┴───┴─╮          │"; Mid = ""; Post = "" } }
+    4  { return @{ Pre = "│      ╱         ╲         │"; Mid = ""; Post = "" } }
+    5  { return @{ Pre = "│     │   "; Mid = "$lb   $rb"; MidColor = $glow; Post = "   │        │" } }
+    6  { return @{ Pre = "│     │   "; Mid = "$le   $re"; MidColor = $glow; Post = "   │        │" } }
+    7  { return @{ Pre = "│     │           │        │"; Mid = ""; Post = "" } }
+    8  { return @{ Pre = "│     │    "; Mid = $mthFmt; MidColor = $glow; Post = "    │        │" } }
+    9  { return @{ Pre = "│      ╲         ╱         │"; Mid = ""; Post = "" } }
+    10 { return @{ Pre = "│       ╰───────╯          │"; Mid = ""; Post = "" } }
+    11 { return @{ Pre = "└─ "; Mid = $stTrunc; MidColor = 'White'; Post = " ─┘" } }
+  }
+}
+
+function Write-SystemRow([int]$row, [string]$leftText, [string]$leftColor, [object]$robot) {
+  try {
+    $dims = Get-ConsoleSize
+    $winWidth  = $dims.Width
+    $winHeight = $dims.Height
+
+    if ($row -lt 0 -or $row -ge $winHeight) { return }
+
+    try {
+      $pos = New-Object System.Management.Automation.Host.Coordinates(0, $row)
+      $Host.UI.RawUI.CursorPosition = $pos
+    } catch {
+      try { [Console]::SetCursorPosition(0, $row) } catch { }
+    }
+
+    if ($robot -and $winWidth -ge 95) {
+      $maxLeft = 65
+      $cleanLeft = if ($leftText.Length -gt $maxLeft) { $leftText.Substring(0, $maxLeft) } else { $leftText.PadRight($maxLeft) }
+      Write-Host $cleanLeft -NoNewline -ForegroundColor $leftColor
+      Write-Host "  " -NoNewline
+      Write-Host $robot.Pre -NoNewline -ForegroundColor DarkGray
+      if ($robot.Mid) {
+        Write-Host $robot.Mid -NoNewline -ForegroundColor $robot.MidColor
+      }
+      if ($robot.Sep) {
+        Write-Host $robot.Sep -NoNewline -ForegroundColor DarkGray
+        Write-Host $robot.Text -NoNewline -ForegroundColor $robot.TextColor
+      }
+      Write-Host $robot.Post -NoNewline -ForegroundColor DarkGray
+
+      $usedCols = 65 + 2 + 28
+      $remain = [Math]::Max(0, $winWidth - $usedCols - 1)
+      if ($remain -gt 0) {
+        Write-Host (" " * $remain) -NoNewline
+      }
+    } else {
+      $maxLen = [Math]::Max(10, $winWidth - 1)
+      $padded = if ($leftText.Length -gt $maxLen) { $leftText.Substring(0, $maxLen) } else { $leftText.PadRight($maxLen) }
+      Write-Host $padded -NoNewline -ForegroundColor $leftColor
+    }
+  } catch { }
+}
+
 function Draw([int]$frame, [bool]$working) {
   try {
     # Detect console window resize and clear stale characters
@@ -309,18 +427,38 @@ function Draw([int]$frame, [bool]$working) {
     Write-Row 0  '  ==============================================================' $headColor
     Write-Row 1  ("   R.E.Y.  //  RUNTIME EXECUTION & YIELD MONITOR  $tag [ $s ] [$bar]") $headColor
     Write-Row 2  '  ==============================================================' $headColor
-    Write-Row 3  ("   opencode IDE  : " + $state.IdeStatus) $state.IdeColor
-    Write-Row 4  ("   workspace     : " + $state.Workspace) 'White'
-    Write-Row 5  ("   default model : " + $state.DefaultModel) 'White'
-    Write-Row 6  ("   small model   : " + $state.SmallModel) 'White'
-    Write-Row 7  ("   providers     : " + $state.Providers) 'White'
-    Write-Row 8  ("   models visible: " + $state.ModelCount) 'White'
-    Write-Row 9  ("   opencode      : " + $state.Version) 'White'
-    Write-Row 10 ("   active threads: " + $state.ThreadCount) 'Magenta'
-    Write-Row 11 ("   activity      : " + $state.Activity) $actColor
-    Write-Row 12 ("   status        : " + $state.Health) $healthColor
-    Write-Row 13 ("   tokens used   : {0}  (prompt: {1} | compl: {2} | cache: {3})  [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost) 'Cyan'
-    Write-Row 14 ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: toggle model tokens)') 'DarkGray'
+
+    # Find active task title for robot face
+    $activeTask = ''
+    $workingSessions = @($script:threadCache.Values | Where-Object { $_.state -eq 'WORKING' })
+    if ($workingSessions.Count -gt 0) {
+      $activeTask = [string]$workingSessions[0].title
+    } elseif ($script:threadCache.Count -gt 0) {
+      $activeTask = [string](@($script:threadCache.Values)[0].title)
+    }
+
+    $healthOk = ($state.Health -eq 'ALL SYSTEMS NOMINAL')
+    $sysRows = @(
+      @{ Text = ("   opencode IDE  : " + $state.IdeStatus); Color = $state.IdeColor },
+      @{ Text = ("   workspace     : " + $state.Workspace); Color = 'White' },
+      @{ Text = ("   default model : " + $state.DefaultModel); Color = 'White' },
+      @{ Text = ("   small model   : " + $state.SmallModel); Color = 'White' },
+      @{ Text = ("   providers     : " + (Shorten $state.Providers 44)); Color = 'White' },
+      @{ Text = ("   models visible: " + $state.ModelCount); Color = 'White' },
+      @{ Text = ("   opencode      : " + $state.Version); Color = 'White' },
+      @{ Text = ("   active threads: " + $state.ThreadCount); Color = 'Magenta' },
+      @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
+      @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
+      @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: toggle tokens)'); Color = 'DarkGray' }
+    )
+
+    for ($idx = 0; $idx -lt 12; $idx++) {
+      $rNum = 3 + $idx
+      $item = $sysRows[$idx]
+      $robotObj = if ($curW -ge 95) { Get-RobotLine $idx $frame $working $activeTask $healthOk } else { $null }
+      Write-SystemRow $rNum $item.Text $item.Color $robotObj
+    }
 
     if ($state.ViewMode -eq 'TOKENS') {
       # --- VIEW MODE: PER-MODEL TOKEN FLEET BREAKDOWN ---
