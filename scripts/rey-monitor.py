@@ -13,6 +13,7 @@ import math
 import shutil
 import json
 import socket
+import random
 from pathlib import Path
 
 # ANSI color codes
@@ -79,10 +80,77 @@ def safe_sub(text, start, length):
         return ''
     return text[start:start + length]
 
-def get_robot_lines(frame, is_working, task_title, health_ok):
+def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch_active=False, punch_tick=0):
     spinners = ["|", "/", "-", "\\"]
     mouths = ["▄  ", " ▄ ", "  ▄", " ▄ "]
 
+    # 1. Frustration Punch Sequence (when task running 10-20+ mins or triggered)
+    if is_working and punch_active:
+        glow = RED
+        if punch_tick < 5:
+            # Phase 1: Winding up furious
+            mood = 'ANGRY!'
+            ant, lb, rb, le, re, mth = '♨', '╲', '╱', 'ಠ', 'ಠ', '▃▃▃'
+            status_text = '>10m! So frustrated!! '
+            st_trunc = status_text[:22].ljust(22)
+            mth_center = mth.center(3)
+            return [
+                f"{CHASSIS}┌── {glow}R.E.Y. BOT{CHASSIS} ─ [{glow}{mood:<7}{CHASSIS}]─┐{RESET}",
+                f"{CHASSIS}│         ╭───╮            │{RESET}",
+                f"{CHASSIS}│         │ {glow}{ant}{CHASSIS} │            │{RESET}",
+                f"{CHASSIS}│       ╭─┴───┴─╮          │{RESET}",
+                f"{CHASSIS}│      ╱  *GRRR* ╲         │{RESET}",
+                f"{CHASSIS}│     │   {glow}{lb}   {rb}{CHASSIS}   │        │{RESET}",
+                f"{CHASSIS}│     │   {glow}{le}   {re}{CHASSIS}   │        │{RESET}",
+                f"{CHASSIS}│     │           │        │{RESET}",
+                f"{CHASSIS}│     │    {glow}{mth_center}{CHASSIS}    │        │{RESET}",
+                f"{CHASSIS}│      ╲  *FIST* ╱         │{RESET}",
+                f"{CHASSIS}│       ╰───────╯          │{RESET}",
+                f"{CHASSIS}└─ {WHITE}{st_trunc}{CHASSIS} ─┘{RESET}"
+            ]
+        elif punch_tick < 15:
+            # Phase 2: THE SCREEN PUNCH!
+            mood = 'PUNCH! '
+            status_text = '*POW!* FINISH TASK!   '
+            st_trunc = status_text[:22].ljust(22)
+            return [
+                f"{CHASSIS}┌── {glow}R.E.Y. BOT{CHASSIS} ─ [{glow}{mood:<7}{CHASSIS}]─┐{RESET}",
+                f"{CHASSIS}│         ╭───╮            │{RESET}",
+                f"{CHASSIS}│         │ {glow}♨{CHASSIS} │            │{RESET}",
+                f"{CHASSIS}│       ╭─┴───┴─╮          │{RESET}",
+                f"{CHASSIS}│      ╱ *POW!!* ╲         │{RESET}",
+                f"{CHASSIS}│     │   {glow}╲   ╱{CHASSIS}   │        │{RESET}",
+                f"{CHASSIS}│     │  {glow}[==👊==]{CHASSIS} │        │{RESET}",
+                f"{CHASSIS}│     │   {glow}*BAM!*{CHASSIS}  │        │{RESET}",
+                f"{CHASSIS}│     │    {glow}▃▃▃{CHASSIS}    │        │{RESET}",
+                f"{CHASSIS}│      ╲         ╱         │{RESET}",
+                f"{CHASSIS}│       ╰───────╯          │{RESET}",
+                f"{CHASSIS}└─ {WHITE}{st_trunc}{CHASSIS} ─┘{RESET}"
+            ]
+        else:
+            # Phase 3: Cooldown / Panting
+            mood = 'EXHAUST'
+            ant, lb, rb, le, re, mth = '~', '╱', '╲', '•', '•', mouths[frame % 4]
+            glow = YELLOW
+            status_text = 'Phew... hurry it up!  '
+            st_trunc = status_text[:22].ljust(22)
+            mth_center = mth.center(3)
+            return [
+                f"{CHASSIS}┌── {glow}R.E.Y. BOT{CHASSIS} ─ [{glow}{mood:<7}{CHASSIS}]─┐{RESET}",
+                f"{CHASSIS}│         ╭───╮            │{RESET}",
+                f"{CHASSIS}│         │ {glow}{ant}{CHASSIS} │            │{RESET}",
+                f"{CHASSIS}│       ╭─┴───┴─╮          │{RESET}",
+                f"{CHASSIS}│      ╱         ╲         │{RESET}",
+                f"{CHASSIS}│     │   {glow}{lb}   {rb}{CHASSIS}   │        │{RESET}",
+                f"{CHASSIS}│     │   {glow}{le}   {re}{CHASSIS}   │        │{RESET}",
+                f"{CHASSIS}│     │           │        │{RESET}",
+                f"{CHASSIS}│     │    {glow}{mth_center}{CHASSIS}    │        │{RESET}",
+                f"{CHASSIS}│      ╲         ╱         │{RESET}",
+                f"{CHASSIS}│       ╰───────╯          │{RESET}",
+                f"{CHASSIS}└─ {WHITE}{st_trunc}{CHASSIS} ─┘{RESET}"
+            ]
+
+    # 2. Standard Task & Idle Expression Logic
     if not health_ok:
         ant, lb, rb, le, re, mth = "☡", "╲", "╱", "✖", "✖", "▃▃▃"
         glow, mood, status_text = RED, "ALERT", "Check error log!"
@@ -104,9 +172,11 @@ def get_robot_lines(frame, is_working, task_title, health_ok):
             ant, lb, rb, le, re, mth = spinners[frame % 4], "─", "╱", "◯", "◉", mouths[frame % 4]
             glow, mood, status_text = YELLOW, "THINKING", "Processing task..."
     else:
-        cycle = (frame // 25) % 5
+        # Standby cycles: 6 distinct living moods (25 ticks each = ~5 seconds per mood)
+        cycle = (frame // 25) % 6
         sub_tick = frame % 25
         if cycle == 0:
+            # Looking around
             ant, lb, rb, mth, glow, mood = "⚇", "─", "─", "───", CYAN, "LOOK"
             if sub_tick < 7:
                 le, re, status_text = "◖", "◖", "Scanning left..."
@@ -117,16 +187,44 @@ def get_robot_lines(frame, is_working, task_title, health_ok):
             else:
                 le, re, status_text = "◉", "◉", "Standing by..."
         elif cycle == 1:
-            ant, lb, rb, le, re, mth = "☼", "╭", "╮", "^", "^", "╰━╯"
-            glow, mood, status_text = GREEN, "HAPPY", "All nominal!"
+            # YAWNING SEQUENCE!
+            mood = "YAWN"
+            glow = YELLOW
+            ant = "~"
+            if sub_tick < 8:
+                lb, rb, le, re, mth = "─", "─", "˘", "˘", " - "
+                status_text = "Feeling drowsy...     "
+            elif sub_tick < 18:
+                # Big wide yawn!
+                lb, rb, le, re, mth = "╭", "╮", ">", "<", "╰◯╯"
+                status_text = "Yaaaaawn... *stretch* "
+            else:
+                # Post yawn sigh
+                lb, rb, le, re, mth = "─", "─", "─", "─", " ˘ "
+                status_text = "*sigh* so sleepy...   "
         elif cycle == 2:
-            ant, lb, rb, mth = "z", "─", "─", "───"
-            le = re = "─" if (frame % 8 < 4) else "˘"
-            glow, mood, status_text = DIM, "SLEEPY", "Low power mode..."
+            # DEEP SLEEP / SNOOZING
+            mood = "SLEEP"
+            glow = DIM
+            zs = ["z", "Z", "z", "Z"]
+            ant = zs[(frame // 6) % 4]
+            lb, rb = "─", "─"
+            if (sub_tick % 10) < 5:
+                le, re, mth = "─", "─", "───"
+                status_text = "zzz... snoozing...    "
+            else:
+                le, re, mth = "˘", "˘", " ˘ "
+                status_text = "zzz... dreaming code  "
         elif cycle == 3:
+            # Curious
             ant, lb, rb, le, re, mth = "⚇", "^", "─", "◖", "◉", " ▱ "
             glow, mood, status_text = MAGENTA, "CURIOUS", "Awaiting task..."
+        elif cycle == 4:
+            # Happy
+            ant, lb, rb, le, re, mth = "☼", "╭", "╮", "^", "^", "╰━╯"
+            glow, mood, status_text = GREEN, "HAPPY", "All nominal!"
         else:
+            # Playful wink
             ant, lb, rb, mth = "★", "╭", "─", "╰━╯"
             le, re = "^", ("◉" if (frame % 10 < 7) else "^")
             glow, mood, status_text = GREEN, "WINK", "Ready for work!"
@@ -187,6 +285,10 @@ class ReyMonitor:
         self.logs = []
         self.thread_cache = {}
         self.was_working = False
+        self.working_start_time = None
+        self.punch_active = False
+        self.punch_tick = 0
+        self.last_punch_frame = -999
         self.last_w = 0
         self.last_h = 0
         self.view_mode = 'FLEET'  # 'FLEET' or 'TOKENS'
@@ -365,12 +467,24 @@ class ReyMonitor:
         working = (self.state['thread_count'] > 0)
         if working and not self.was_working:
             self.add_log('fleet thinking...')
+            self.working_start_time = time.time()
+            self.punch_active = False
+            self.punch_tick = 0
         if not working and self.was_working:
             self.add_log('fleet idle - all done')
+            self.working_start_time = None
+            self.punch_active = False
+            self.punch_tick = 0
+        if working and not self.working_start_time:
+            self.working_start_time = time.time()
         self.was_working = working
 
         if working:
-            self.state['activity'] = 'THINKING'
+            mins = int((time.time() - self.working_start_time) / 60) if self.working_start_time else 0
+            if mins > 0:
+                self.state['activity'] = f"THINKING ({mins}m elapsed)"
+            else:
+                self.state['activity'] = 'THINKING'
         elif 'ONLINE' in self.state['ide_status']:
             self.state['activity'] = 'IDLE (STANDBY)'
         else:
@@ -435,7 +549,27 @@ class ReyMonitor:
                     active_task_title = t.get('title', '')
                     break
             health_ok = (self.state['health'] == 'ALL SYSTEMS NOMINAL')
-            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok)
+
+            elapsed_s = (time.time() - self.working_start_time) if (working and self.working_start_time) else 0
+
+            # Frustration Punch Trigger:
+            # When task has run for 10-20+ minutes (elapsed_s >= 600)
+            # Or task title has [punch] for testing
+            if working and (elapsed_s >= 600 or any(k in (active_task_title.lower()) for k in ['[punch]', 'massive', 'heavy'])):
+                if not self.punch_active:
+                    if (frame - self.last_punch_frame) > 150:  # at least 30s cooldown
+                        if random.random() < 0.08 or '[punch]' in active_task_title.lower():
+                            self.punch_active = True
+                            self.punch_tick = 0
+                            self.last_punch_frame = frame
+                else:
+                    self.punch_tick += 1
+                    if self.punch_tick > 20:
+                        self.punch_active = False
+            else:
+                self.punch_active = False
+
+            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok, elapsed_s, self.punch_active, self.punch_tick)
 
             for idx, (txt, col) in enumerate(sys_items):
                 left_part = (txt[:65]).ljust(65)

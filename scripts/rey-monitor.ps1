@@ -39,10 +39,14 @@ $state = @{
   LastRefresh  = 'never'
 }
 
-$script:threadCache = @{}  # id -> session object
-$script:wasWorking  = $false
-$script:lastW       = 0
-$script:lastH       = 0
+$script:threadCache     = @{}  # id -> session object
+$script:wasWorking      = $false
+$script:workingStart    = $null
+$script:punchActive     = $false
+$script:punchTick       = 0
+$script:lastPunchFrame  = -999
+$script:lastW           = 0
+$script:lastH           = 0
 $logs = New-Object System.Collections.Generic.List[string]
 
 function Add-Log([string]$msg) {
@@ -216,12 +220,34 @@ function Refresh-Status {
   }
 
   $working = ($state.ThreadCount -gt 0)
-  if ($working -and -not $script:wasWorking) { Add-Log 'fleet thinking...' }
-  if ((-not $working) -and $script:wasWorking) { Add-Log 'fleet idle - all done' }
+  if ($working -and -not $script:wasWorking) {
+    Add-Log 'fleet thinking...'
+    $script:workingStart = Get-Date
+    $script:punchActive  = $false
+    $script:punchTick    = 0
+  }
+  if ((-not $working) -and $script:wasWorking) {
+    Add-Log 'fleet idle - all done'
+    $script:workingStart = $null
+    $script:punchActive  = $false
+    $script:punchTick    = 0
+  }
+  if ($working -and -not $script:workingStart) {
+    $script:workingStart = Get-Date
+  }
   $script:wasWorking = $working
 
   if ($working) {
-    $state.Activity = 'THINKING'
+    if ($script:workingStart) {
+      $mins = [int](([DateTime]::Now - $script:workingStart).TotalMinutes)
+      if ($mins -gt 0) {
+        $state.Activity = ("THINKING ({0}m elapsed)" -f $mins)
+      } else {
+        $state.Activity = 'THINKING'
+      }
+    } else {
+      $state.Activity = 'THINKING'
+    }
   } elseif ($state.IdeStatus -like 'ONLINE*') {
     $state.Activity = 'IDLE (STANDBY)'
   } else {
@@ -284,10 +310,64 @@ function Write-Row([int]$row, [string]$text, [string]$color) {
   }
 }
 
-function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$taskTitle, [bool]$healthOk) {
+function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$taskTitle, [bool]$healthOk, [bool]$punchActive, [int]$punchTick) {
   $spinners = @('|', '/', '-', '\')
   $mouths   = @('▄  ', ' ▄ ', '  ▄', ' ▄ ')
 
+  # 1. Frustration Punch Sequence (when task running 10-20+ mins or triggered)
+  if ($working -and $punchActive) {
+    if ($punchTick -lt 5) {
+      # Phase 1: Winding up furious
+      switch ($lineIndex) {
+        0  { return @{ Pre = "┌── "; Mid = "R.E.Y. BOT"; MidColor = 'Red'; Sep = " ─ ["; Text = ("{0,-7}" -f 'ANGRY!'); TextColor = 'Red'; Post = "]─┐" } }
+        1  { return @{ Pre = "│         ╭───╮            │"; Mid = ""; Post = "" } }
+        2  { return @{ Pre = "│         │ "; Mid = "♨"; MidColor = 'Red'; Post = " │            │" } }
+        3  { return @{ Pre = "│       ╭─┴───┴─╮          │"; Mid = ""; Post = "" } }
+        4  { return @{ Pre = "│      ╱  *GRRR* ╲         │"; Mid = ""; Post = "" } }
+        5  { return @{ Pre = "│     │   "; Mid = "╲   ╱"; MidColor = 'Red'; Post = "   │        │" } }
+        6  { return @{ Pre = "│     │   "; Mid = "ಠ   ಠ"; MidColor = 'Red'; Post = "   │        │" } }
+        7  { return @{ Pre = "│     │           │        │"; Mid = ""; Post = "" } }
+        8  { return @{ Pre = "│     │    "; Mid = "▃▃▃"; MidColor = 'Red'; Post = "    │        │" } }
+        9  { return @{ Pre = "│      ╲  *FIST* ╱         │"; Mid = ""; Post = "" } }
+        10 { return @{ Pre = "│       ╰───────╯          │"; Mid = ""; Post = "" } }
+        11 { return @{ Pre = "└─ "; Mid = ">10m! So frustrated!! "; MidColor = 'White'; Post = " ─┘" } }
+      }
+    } elseif ($punchTick -lt 15) {
+      # Phase 2: THE SCREEN PUNCH!
+      switch ($lineIndex) {
+        0  { return @{ Pre = "┌── "; Mid = "R.E.Y. BOT"; MidColor = 'Red'; Sep = " ─ ["; Text = ("{0,-7}" -f 'PUNCH!'); TextColor = 'Red'; Post = "]─┐" } }
+        1  { return @{ Pre = "│         ╭───╮            │"; Mid = ""; Post = "" } }
+        2  { return @{ Pre = "│         │ "; Mid = "♨"; MidColor = 'Red'; Post = " │            │" } }
+        3  { return @{ Pre = "│       ╭─┴───┴─╮          │"; Mid = ""; Post = "" } }
+        4  { return @{ Pre = "│      ╱ *POW!!* ╲         │"; Mid = ""; Post = "" } }
+        5  { return @{ Pre = "│     │   "; Mid = "╲   ╱"; MidColor = 'Red'; Post = "   │        │" } }
+        6  { return @{ Pre = "│     │  "; Mid = "[==👊==]"; MidColor = 'Red'; Post = " │        │" } }
+        7  { return @{ Pre = "│     │   "; Mid = "*BAM!*"; MidColor = 'Red'; Post = "  │        │" } }
+        8  { return @{ Pre = "│     │    "; Mid = "▃▃▃"; MidColor = 'Red'; Post = "    │        │" } }
+        9  { return @{ Pre = "│      ╲         ╱         │"; Mid = ""; Post = "" } }
+        10 { return @{ Pre = "│       ╰───────╯          │"; Mid = ""; Post = "" } }
+        11 { return @{ Pre = "└─ "; Mid = "*POW!* FINISH TASK!   "; MidColor = 'White'; Post = " ─┘" } }
+      }
+    } else {
+      # Phase 3: Cooldown / Panting
+      switch ($lineIndex) {
+        0  { return @{ Pre = "┌── "; Mid = "R.E.Y. BOT"; MidColor = 'Yellow'; Sep = " ─ ["; Text = ("{0,-7}" -f 'EXHAUST'); TextColor = 'Yellow'; Post = "]─┐" } }
+        1  { return @{ Pre = "│         ╭───╮            │"; Mid = ""; Post = "" } }
+        2  { return @{ Pre = "│         │ "; Mid = "~"; MidColor = 'Yellow'; Post = " │            │" } }
+        3  { return @{ Pre = "│       ╭─┴───┴─╮          │"; Mid = ""; Post = "" } }
+        4  { return @{ Pre = "│      ╱         ╲         │"; Mid = ""; Post = "" } }
+        5  { return @{ Pre = "│     │   "; Mid = "╱   ╲"; MidColor = 'Yellow'; Post = "   │        │" } }
+        6  { return @{ Pre = "│     │   "; Mid = "•   •"; MidColor = 'Yellow'; Post = "   │        │" } }
+        7  { return @{ Pre = "│     │           │        │"; Mid = ""; Post = "" } }
+        8  { return @{ Pre = "│     │    "; Mid = $mouths[$frame % 4]; MidColor = 'Yellow'; Post = "    │        │" } }
+        9  { return @{ Pre = "│      ╲         ╱         │"; Mid = ""; Post = "" } }
+        10 { return @{ Pre = "│       ╰───────╯          │"; Mid = ""; Post = "" } }
+        11 { return @{ Pre = "└─ "; Mid = "Phew... hurry it up!  "; MidColor = 'White'; Post = " ─┘" } }
+      }
+    }
+  }
+
+  # 2. Standard Task & Idle Expression Logic
   $ant = '|'; $lb = '─'; $rb = '─'; $le = '◉'; $re = '◉'; $mth = '───'
   $glow = 'Yellow'; $mood = 'STANDBY'; $status = 'Standing by...'
 
@@ -313,25 +393,46 @@ function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$ta
       $glow = 'Yellow'; $mood = 'THINKING'; $status = 'Processing task...'
     }
   } else {
-    $cycle = [int](($frame / 25) % 5)
+    $cycle = [int](($frame / 25) % 6)
     $subTick = $frame % 25
     if ($cycle -eq 0) {
+      # Looking around
       $ant = '⚇'; $lb = '─'; $rb = '─'; $mth = '───'; $glow = 'Cyan'; $mood = 'LOOK'
       if ($subTick -lt 7) { $le = '◖'; $re = '◖'; $status = 'Scanning left...' }
       elseif ($subTick -lt 14) { $le = '◉'; $re = '◉'; $status = 'Standing by...' }
       elseif ($subTick -lt 20) { $le = '◗'; $re = '◗'; $status = 'Scanning right...' }
       else { $le = '◉'; $re = '◉'; $status = 'Standing by...' }
     } elseif ($cycle -eq 1) {
-      $ant = '☼'; $lb = '╭'; $rb = '╮'; $le = '^'; $re = '^'; $mth = '╰━╯'
-      $glow = 'Green'; $mood = 'HAPPY'; $status = 'All nominal!'
+      # YAWN SEQUENCE!
+      $mood = 'YAWN'; $glow = 'Yellow'; $ant = '~'
+      if ($subTick -lt 8) {
+        $lb = '─'; $rb = '─'; $le = '˘'; $re = '˘'; $mth = ' - '; $status = 'Feeling drowsy...'
+      } elseif ($subTick -lt 18) {
+        $lb = '╭'; $rb = '╮'; $le = '>'; $re = '<'; $mth = '╰◯╯'; $status = 'Yaaaaawn... *stretch*'
+      } else {
+        $lb = '─'; $rb = '─'; $le = '─'; $re = '─'; $mth = ' ˘ '; $status = '*sigh* so sleepy...'
+      }
     } elseif ($cycle -eq 2) {
-      $ant = 'z'; $lb = '─'; $rb = '─'; $mth = '───'
-      $le = if (($frame % 8) -lt 4) { '─' } else { '˘' }
-      $re = $le; $glow = 'DarkGray'; $mood = 'SLEEPY'; $status = 'Low power mode...'
+      # DEEP SLEEP / SNOOZING
+      $mood = 'SLEEP'; $glow = 'DarkGray'
+      $zs = @('z', 'Z', 'z', 'Z')
+      $ant = $zs[[int](($frame / 6) % 4)]
+      $lb = '─'; $rb = '─'
+      if (($subTick % 10) -lt 5) {
+        $le = '─'; $re = '─'; $mth = '───'; $status = 'zzz... snoozing...'
+      } else {
+        $le = '˘'; $re = '˘'; $mth = ' ˘ '; $status = 'zzz... dreaming code'
+      }
     } elseif ($cycle -eq 3) {
+      # CURIOUS
       $ant = '⚇'; $lb = '^'; $rb = '─'; $le = '◖'; $re = '◉'; $mth = ' ▱ '
       $glow = 'Magenta'; $mood = 'CURIOUS'; $status = 'Awaiting task...'
+    } elseif ($cycle -eq 4) {
+      # HAPPY
+      $ant = '☼'; $lb = '╭'; $rb = '╮'; $le = '^'; $re = '^'; $mth = '╰━╯'
+      $glow = 'Green'; $mood = 'HAPPY'; $status = 'All nominal!'
     } else {
+      # WINK
       $ant = '★'; $lb = '╭'; $rb = '─'; $mth = '╰━╯'
       $le = '^'; $re = if (($frame % 10) -lt 7) { '◉' } else { '^' }
       $glow = 'Green'; $mood = 'WINK'; $status = 'Ready for work!'
@@ -453,10 +554,39 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: toggle tokens)'); Color = 'DarkGray' }
     )
 
+    # Calculate elapsed working seconds
+    $elapsedSec = 0
+    if ($working -and $script:workingStart) {
+      $elapsedSec = ([DateTime]::Now - $script:workingStart).TotalSeconds
+    }
+
+    # Frustration Punch Trigger:
+    # Occurs randomly when a task has run for 10-20+ minutes (elapsedSec >= 600)
+    # Also support task title "[punch]" or "[test-punch]" for immediate testing
+    if ($working -and ($elapsedSec -ge 600 -or $activeTask -match '\[punch\]|massive|heavy')) {
+      if (-not $script:punchActive) {
+        if (($frame - $script:lastPunchFrame) -gt 150) { # at least 30s between punches
+          $randVal = Get-Random -Minimum 0 -Maximum 100
+          if ($randVal -lt 8 -or $activeTask -match '\[punch\]') {
+            $script:punchActive = $true
+            $script:punchTick = 0
+            $script:lastPunchFrame = $frame
+          }
+        }
+      } else {
+        $script:punchTick++
+        if ($script:punchTick -gt 20) {
+          $script:punchActive = $false
+        }
+      }
+    } else {
+      $script:punchActive = $false
+    }
+
     for ($idx = 0; $idx -lt 12; $idx++) {
       $rNum = 3 + $idx
       $item = $sysRows[$idx]
-      $robotObj = if ($curW -ge 95) { Get-RobotLine $idx $frame $working $activeTask $healthOk } else { $null }
+      $robotObj = if ($curW -ge 95) { Get-RobotLine $idx $frame $working $activeTask $healthOk $script:punchActive $script:punchTick } else { $null }
       Write-SystemRow $rNum $item.Text $item.Color $robotObj
     }
 
