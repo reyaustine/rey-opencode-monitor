@@ -1,4 +1,4 @@
-# Check if all phases in task_plan.md are complete
+﻿# Check if all phases in task_plan.md are complete
 # Default invocation: advisory echo, always exits 0 (Stop hook status report).
 # With -Gate: deliberate completion gate, opt-in per plan via <plan-dir>/.mode.
 # Used by Stop hook to report task completion status.

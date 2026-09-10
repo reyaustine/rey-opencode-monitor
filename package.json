@@ -1,6 +1,6 @@
 {
   "name": "@reyaustine/rey-opencode-monitor",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "R.E.Y. // Runtime Execution & Yield Monitor - Real-time terminal HUD & companion robot with Swarm Load Balancer for OpenCode",
   "main": "bin/rey.js",
   "publishConfig": {

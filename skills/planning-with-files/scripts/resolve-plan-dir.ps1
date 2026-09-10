@@ -1,4 +1,4 @@
-# planning-with-files: resolve active plan directory (PowerShell mirror).
+﻿# planning-with-files: resolve active plan directory (PowerShell mirror).
 #
 # Resolution order matches scripts/resolve-plan-dir.sh:
 #   1. $env:PLAN_ID -> .\.planning\$PLAN_ID\

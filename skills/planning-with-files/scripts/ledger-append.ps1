@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 <#
 .SYNOPSIS
     Append one structured entry to the run-ledger (PowerShell mirror, v3).

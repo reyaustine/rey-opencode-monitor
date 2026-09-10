@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 <#
 .SYNOPSIS
     Set the status of one phase in task_plan.md (PowerShell mirror, v3).

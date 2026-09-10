@@ -1,4 +1,4 @@
-# Initialize planning files for a new session
+﻿# Initialize planning files for a new session
 # Usage: .\init-session.ps1 [-Template TYPE] [project-name]
 #        .\init-session.ps1 -Autonomous        # v3 autonomous mode (opt-in)
 #        .\init-session.ps1 -Gated             # v3 gated mode (opt-in, implies autonomous)

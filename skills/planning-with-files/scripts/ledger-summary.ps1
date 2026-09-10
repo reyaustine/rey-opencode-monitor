@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 <#
 .SYNOPSIS
     Emit a fixed-shape, cache-stable run-ledger summary (PowerShell mirror, v3).

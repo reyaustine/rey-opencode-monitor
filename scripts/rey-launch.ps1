@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Single-instance launcher for the global R.E.Y. Runtime Execution & Yield Monitor.

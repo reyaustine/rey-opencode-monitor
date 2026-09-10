@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 <#
 .SYNOPSIS
     Lock the current task_plan.md content with a SHA-256 attestation.

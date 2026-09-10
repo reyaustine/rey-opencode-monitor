@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

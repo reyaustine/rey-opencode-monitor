@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   J.A.R.V.I.S.-style background monitor for the free-only OpenCode model fleet.
