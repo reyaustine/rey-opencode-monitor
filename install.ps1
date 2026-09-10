@@ -17,7 +17,7 @@ $GlobalSkillsDir = Join-Path $HOME ".agents\skills"
 $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "   OpenCode Swarm & JARVIS Fleet Monitor Master Installer " -ForegroundColor Cyan
+Write-Host "   R.E.Y. // Runtime Execution & Yield Monitor Installer  " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # Helper function for non-destructive copying with backup
@@ -100,8 +100,8 @@ if (Test-Path $CommandsDir) {
   }
 }
 
-# 5. Deploy JARVIS Model Fleet Monitor Scripts
-Write-Host "`n[*] Deploying JARVIS Model Fleet Monitor scripts..." -ForegroundColor White
+# 5. Deploy R.E.Y. Runtime Execution & Yield Monitor Scripts
+Write-Host "`n[*] Deploying R.E.Y. Monitor scripts..." -ForegroundColor White
 $GlobalScriptsDir = Join-Path $GlobalDir "scripts"
 if (-not (Test-Path $GlobalScriptsDir)) {
   New-Item -ItemType Directory -Path $GlobalScriptsDir -Force | Out-Null
@@ -113,22 +113,24 @@ if (Test-Path $ScriptsDir) {
   }
 }
 
-# 6. Register Global 'jarvis' Command in PATH
-Write-Host "`n[*] Registering 'jarvis' CLI launcher..." -ForegroundColor White
+# 6. Register Global 'rey' (and 'jarvis') Command in PATH
+Write-Host "`n[*] Registering 'rey' CLI launcher..." -ForegroundColor White
 $npmBin = Join-Path $env:APPDATA "npm"
-$installedJarvisCmd = $false
+$installedCmd = $false
 
 if (Test-Path $npmBin) {
-  $cmdSrc = Join-Path $ScriptsDir "jarvis.cmd"
-  $cmdDst = Join-Path $npmBin "jarvis.cmd"
-  if (Test-Path $cmdSrc) {
-    Copy-Item -LiteralPath $cmdSrc -Destination $cmdDst -Force
-    Write-Host "  [+] Registered global 'jarvis' command in $npmBin" -ForegroundColor Green
-    $installedJarvisCmd = $true
+  foreach ($cmdName in @("rey.cmd", "jarvis.cmd")) {
+    $cmdSrc = Join-Path $ScriptsDir $cmdName
+    $cmdDst = Join-Path $npmBin $cmdName
+    if (Test-Path $cmdSrc) {
+      Copy-Item -LiteralPath $cmdSrc -Destination $cmdDst -Force
+      Write-Host "  [+] Registered global '$cmdName' command in $npmBin" -ForegroundColor Green
+      $installedCmd = $true
+    }
   }
 }
 
-if (-not $installedJarvisCmd) {
+if (-not $installedCmd) {
   # Fallback: add ~/.config/opencode/scripts to User PATH if not present
   $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
   if ($userPath -notlike "*$GlobalScriptsDir*") {
@@ -184,7 +186,7 @@ Write-Host "[OK] Installation Complete!" -ForegroundColor Green
 Write-Host "     Your machine is now fully equipped with:" -ForegroundColor White
 Write-Host "     - 30-Model Free Fleet (Kilo, Zen, OpenRouter, Groq, Mistral)" -ForegroundColor Gray
 Write-Host "     - Specialized Swarm Agent Team (@coder, @architect, etc.)" -ForegroundColor Gray
-Write-Host "     - J.A.R.V.I.S. Model Fleet Monitor (Type 'jarvis' anywhere)" -ForegroundColor Gray
+Write-Host "     - R.E.Y. // Runtime Execution & Yield Monitor (Type 'rey' anywhere)" -ForegroundColor Gray
 Write-Host "     - Non-destructive backups created for modified configs" -ForegroundColor Gray
 Write-Host "     - Full bundled skills library (~/.agents/skills/)" -ForegroundColor Gray
 Write-Host "==========================================================" -ForegroundColor Green

@@ -1,7 +1,7 @@
-# 🚀 OpenCode Swarm & JARVIS Fleet Distribution Pack
+# 🚀 R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
 
 A complete, self-contained, and portable distribution pack containing:
-- 🖥️ **J.A.R.V.I.S. CLI Model Fleet Monitor**: Real-time console HUD tracking OpenCode IDE state, active workspaces, and subagents.
+- 🖥️ **R.E.Y. CLI Model Fleet Monitor**: Real-time console HUD tracking OpenCode IDE state, active workspaces, subagents, and per-machine token yields.
 - 🤖 **30-Model Free Fleet & Agent Team**: Zero-cost setup integrating Kilo, OpenCode Zen, OpenRouter (14+ free models), Groq, and Mistral with specialized agent routing (`@coder`, `@architect`, `@tester`, etc.).
 - 🛡️ **Tiered Fallback Chains & Stability Patches**: Clamped rate-limit retry, 90s watchdog auto-failover, and Windows PowerShell execution fixes.
 - 📦 **30+ Bundled Skills**: Modular skills for plans, frontend design, QA, code review, and systematic debugging.
@@ -13,12 +13,16 @@ Designed to be cloned onto any machine and installed non-destructively in 1 comm
 ## 📦 What's Inside
 
 ```text
-opencode-swarm-pack/
+rey-opencode-monitor/
 ├── scripts/
-│   ├── jarvis-monitor.ps1        # Real-time CLI HUD monitor with resize resilience
-│   ├── jarvis-state.py           # Sub-50ms SQLite reader across all workspaces
-│   ├── jarvis-launch.ps1         # Safe single-instance background launcher
-│   └── jarvis.cmd                # Global command launcher (type 'jarvis' anywhere)
+│   ├── rey-monitor.ps1           # Real-time CLI HUD monitor with resize resilience
+│   ├── rey-state.py              # Sub-50ms SQLite reader across all workspaces
+│   ├── rey-launch.ps1            # Safe single-instance background launcher
+│   ├── rey.cmd                   # Global command launcher (type 'rey' anywhere)
+│   ├── jarvis-monitor.ps1        # Backwards-compatible alias
+│   ├── jarvis-state.py           # Backwards-compatible alias
+│   ├── jarvis-launch.ps1         # Backwards-compatible alias
+│   └── jarvis.cmd                # Backwards-compatible alias
 ├── configs/
 │   ├── opencode.json             # Root config with instructions & health check command
 │   ├── opencode.jsonc            # 30-model free fleet, providers & agent team roster
@@ -43,8 +47,8 @@ opencode-swarm-pack/
 ### Step 1: Clone This Repository
 ```powershell
 # In PowerShell (Windows):
-git clone https://github.com/reyaustine/opencode-swarm-pack.git "$env:USERPROFILE\opencode-swarm-pack"
-cd "$env:USERPROFILE\opencode-swarm-pack"
+git clone https://github.com/reyaustine/rey-opencode-monitor.git "$env:USERPROFILE\rey-opencode-monitor"
+cd "$env:USERPROFILE\rey-opencode-monitor"
 ```
 
 ### Step 2: Configure Environment Keys (Optional but Recommended)
@@ -63,32 +67,32 @@ Set your free provider keys as user environment variables (see `.env.example`):
 #### What `install.ps1` does automatically:
 1. **Clean & Non-Destructive**: Backs up any existing configuration files to `.bak.<timestamp>` before updating.
 2. **Deploys Machine-Global Config**: Installs `opencode.json`, `opencode.jsonc`, `model-fallback.json`, and `skill-routing.yaml` into `~/.config/opencode/`.
-3. **Installs J.A.R.V.I.S. Monitor**: Deploys monitor scripts to `~/.config/opencode/scripts/` and registers the global `jarvis` command in `%APPDATA%\npm` or User PATH.
+3. **Installs R.E.Y. Monitor**: Deploys monitor scripts to `~/.config/opencode/scripts/` and registers the global `rey` command (and `jarvis` alias) in `%APPDATA%\npm` or User PATH.
 4. **Installs Skills**: Copies 30+ production skills into `~/.agents/skills/`.
 5. **Applies Stability Patches**: Applies runtime patches for retry backoff and watchdog failover.
 
 ---
 
-## 🖥️ Launching J.A.R.V.I.S. Model Fleet Monitor
+## 🖥️ Launching R.E.Y. // Runtime Execution & Yield Monitor
 
 Once installed, launch the monitor at any time from any directory:
 
 ```powershell
-jarvis
+rey
 ```
-*Or press <kbd>Win</kbd> + <kbd>R</kbd> and type `jarvis`.*
+*(Or type `jarvis` — both point to the R.E.Y. engine)*
 
 ### Monitor Features:
 * **Live OpenCode IDE Telemetry**: Detects whether OpenCode desktop or headless is `ONLINE` or `OFFLINE`.
 * **Cross-Workspace Awareness**: Tracks the active project workspace (e.g., `Ohana`, `HR-Sportfest-App`) and detects subagent threads from all repositories in real-time (<50ms via direct SQLite WAL read).
 * **Token Usage Tracker (All-Time & Per-Model)**: Tracks aggregate tokens used on the machine (prompt, completion, cache read, cost) and displays full per-model breakdowns.
 * **Unique Per Machine (`.gitignore`)**: Token telemetry data is saved locally to `~/.config/opencode/token-tracker.json` and gitignored in this repo so each machine retains its own independent usage stats without merge conflicts.
-* **Interactive Views (<kbd>T</kbd>)**: Press `T` while the monitor is open to toggle instantly between `[FLEET / LIVE LOGS]` and `[TOKEN FLEET BREAKDOWN]`.
+* **Interactive Views (<kbd>T</kbd>)**: Press <kbd>T</kbd> while the monitor is open to toggle instantly between `[FLEET / LIVE LOGS]` and `[TOKEN FLEET BREAKDOWN]`.
 * **Resize Resilient**: Dynamic window dimension detection automatically scales rows, pads output, and prevents line-wrapping crashes when resizing or snapping terminal windows.
 
 ```text
 ==============================================================
- J.A.R.V.I.S.  //  MODEL FLEET MONITOR  [ STANDBY ] [ | ] [##########..........]
+ R.E.Y.  //  RUNTIME EXECUTION & YIELD MONITOR  [ STANDBY ] [ | ] [##########..........]
 ==============================================================
  opencode IDE  : ONLINE (PID 15540)
  workspace     : Ohana
@@ -101,7 +105,7 @@ jarvis
  activity      : IDLE (STANDBY)
  status        : ALL SYSTEMS NOMINAL
  tokens used   : 131.2M  (prompt: 9.5M | compl: 395k | cache: 121.1M)  [$0.1356]
- last refresh  : 11:02:54   (Q: quit | T: toggle model tokens)
+ last refresh  : 11:22:54   (Q: quit | T: toggle model tokens)
 --------------------------------------------------------------
 TOKEN FLEET BREAKDOWN (TOTAL: 131.2M | COST: $0.1356)  [PRESS T FOR LOGS/FLEET]
 PROVIDER     | MODEL                               | PROMPT    | COMPL    | TOTAL     | CALLS
