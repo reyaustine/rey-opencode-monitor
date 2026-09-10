@@ -81,32 +81,41 @@ jarvis
 ### Monitor Features:
 * **Live OpenCode IDE Telemetry**: Detects whether OpenCode desktop or headless is `ONLINE` or `OFFLINE`.
 * **Cross-Workspace Awareness**: Tracks the active project workspace (e.g., `Ohana`, `HR-Sportfest-App`) and detects subagent threads from all repositories in real-time (<50ms via direct SQLite WAL read).
+* **Token Usage Tracker (All-Time & Per-Model)**: Tracks aggregate tokens used on the machine (prompt, completion, cache read, cost) and displays full per-model breakdowns.
+* **Unique Per Machine (`.gitignore`)**: Token telemetry data is saved locally to `~/.config/opencode/token-tracker.json` and gitignored in this repo so each machine retains its own independent usage stats without merge conflicts.
+* **Interactive Views (<kbd>T</kbd>)**: Press `T` while the monitor is open to toggle instantly between `[FLEET / LIVE LOGS]` and `[TOKEN FLEET BREAKDOWN]`.
 * **Resize Resilient**: Dynamic window dimension detection automatically scales rows, pads output, and prevents line-wrapping crashes when resizing or snapping terminal windows.
-* **Sub-Agents Pane**: Real-time display of active and recent agent threads:
-  ```text
-  ==============================================================
-   J.A.R.V.I.S.  //  MODEL FLEET MONITOR  [ STANDBY ] [ | ] [##########..........]
-  ==============================================================
-   opencode IDE  : ONLINE (PID 15540)
-   workspace     : Ohana
-   default model : kilo/kilo-auto/free
-   small model   : opencode/big-pickle
-   providers     : kilo, opencode, openrouter, groq, mistral, huggingface
-   models visible: 30 allowlisted
-   opencode      : 1.17.11
-   active threads: 0
-   activity      : IDLE (STANDBY)
-   status        : ALL SYSTEMS NOMINAL
-   last refresh  : 10:39:20   (Q to quit)
-  --------------------------------------------------------------
-  LIVE LOG
-  [10:35:06] JARVIS monitor initialized (real-time telemetry)
-  --------------------------------------------------------------
-  SUB-AGENTS (ID | WORKSPACE | AGENT | MODEL | TASK | STATE)
-  ses_f76df129 | Ohana      | build | groq/openai/gpt-oss-.. | Groq120b online 6x7 co.. [DONE]
-  ses_f996e01f | Ohana      | build | opencode/muse-spark-.. | Bash and external link.. [DONE]
-  --------------------------------------------------------------
-  ```
+
+```text
+==============================================================
+ J.A.R.V.I.S.  //  MODEL FLEET MONITOR  [ STANDBY ] [ | ] [##########..........]
+==============================================================
+ opencode IDE  : ONLINE (PID 15540)
+ workspace     : Ohana
+ default model : kilo/kilo-auto/free
+ small model   : opencode/big-pickle
+ providers     : kilo, opencode, openrouter, groq, mistral, huggingface
+ models visible: 30 allowlisted
+ opencode      : 1.17.11
+ active threads: 0
+ activity      : IDLE (STANDBY)
+ status        : ALL SYSTEMS NOMINAL
+ tokens used   : 131.2M  (prompt: 9.5M | compl: 395k | cache: 121.1M)  [$0.1356]
+ last refresh  : 11:02:54   (Q: quit | T: toggle model tokens)
+--------------------------------------------------------------
+TOKEN FLEET BREAKDOWN (TOTAL: 131.2M | COST: $0.1356)  [PRESS T FOR LOGS/FLEET]
+PROVIDER     | MODEL                               | PROMPT    | COMPL    | TOTAL     | CALLS
+--------------------------------------------------------------------------------------------
+opencode     | muse-spark-1.2-contributor-free     | 3.7M      | 177.6k   | 56.1M     | 462
+opencode     | muse-spark-1.3-contributor-free     | 1.2M      | 47.8k    | 41.5M     | 163
+opencode     | mimo-v2.5-free                      | 1.5M      | 146.2k   | 18.8M     | 306
+openrouter   | thinkingmachines/inkling:free       | 1.3M      | 6.5k     | 6.5M      | 109
+kilo         | nex-agi/nex-n2.5-mini:free          | 423.8k    | 7.5k     | 3.1M      | 27
+openrouter   | minimax/minimax-m3:free             | 304.8k    | 2.3k     | 2.4M      | 26
+opencode     | big-pickle                          | 408.7k    | 5.0k     | 1.6M      | 17
+openrouter   | qwen/qwen3-coder-flash              | 287.1k    | 425      | 501.5k    | 7
+--------------------------------------------------------------
+```
 
 ---
 

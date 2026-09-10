@@ -28,6 +28,13 @@ $state = @{
   ThreadCount  = 0
   Activity     = 'IDLE'
   Health       = 'STARTING'
+  TokensTotal  = '0'
+  TokensPrompt = '0'
+  TokensComp   = '0'
+  TokensCache  = '0'
+  TokensCost   = '$0.00'
+  TokenModels  = @()
+  ViewMode     = 'FLEET'
   LastRefresh  = 'never'
 }
 
@@ -177,6 +184,22 @@ function Refresh-Status {
 
             $script:threadCache[$sid] = $s
           }
+
+          # Update token metrics
+          if ($dbData.tokens) {
+            $gt = $dbData.tokens.grand_total
+            if ($gt) {
+              $state.TokensTotal  = [string]$gt.total_fmt
+              $state.TokensPrompt = [string]$gt.prompt_fmt
+              $state.TokensComp   = [string]$gt.completion_fmt
+              $state.TokensCache  = [string]$gt.cache_read_fmt
+              $costVal = [double]($gt.cost)
+              $state.TokensCost   = ('${0:N4}' -f $costVal)
+            }
+            if ($dbData.tokens.models) {
+              $state.TokenModels = @($dbData.tokens.models)
+            }
+          }
         } else {
           $ok = $false
           Add-Log ('db query err: ' + (Shorten $dbData.error 35))
@@ -294,52 +317,96 @@ function Draw([int]$frame, [bool]$working) {
     Write-Row 10 ("   active threads: " + $state.ThreadCount) 'Magenta'
     Write-Row 11 ("   activity      : " + $state.Activity) $actColor
     Write-Row 12 ("   status        : " + $state.Health) $healthColor
-    Write-Row 13 ("   last refresh  : " + $state.LastRefresh + '   (Q to quit)') 'DarkGray'
-    Write-Row 14 '  --------------------------------------------------------------' 'DarkCyan'
-    Write-Row 15 '  LIVE LOG' 'Yellow'
+    Write-Row 13 ("   tokens used   : {0}  (prompt: {1} | compl: {2} | cache: {3})  [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost) 'Cyan'
+    Write-Row 14 ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: toggle model tokens)') 'DarkGray'
 
-    # Adaptive log lines based on terminal height
-    $maxLogLines = 5
-    if ($curH -lt 28) { $maxLogLines = [Math]::Max(1, $curH - 24) }
-    for ($i = 0; $i -lt $maxLogLines; $i++) {
-      $line = ''
-      if ($i -lt $logs.Count) { $line = '  ' + $logs[$i] }
-      Write-Row (16 + $i) $line 'Gray'
-    }
+    if ($state.ViewMode -eq 'TOKENS') {
+      # --- VIEW MODE: PER-MODEL TOKEN FLEET BREAKDOWN ---
+      Write-Row 15 '  --------------------------------------------------------------' 'DarkCyan'
+      Write-Row 16 ("  TOKEN FLEET BREAKDOWN (TOTAL: {0} | COST: {1})  [PRESS T FOR LOGS/FLEET]" -f $state.TokensTotal, $state.TokensCost) 'Cyan'
+      Write-Row 17 '  PROVIDER     | MODEL                               | PROMPT    | COMPL    | TOTAL     | CALLS' 'Yellow'
+      Write-Row 18 '  --------------------------------------------------------------------------------------------' 'DarkGray'
 
-    $subHeaderRow = 16 + $maxLogLines
-    Write-Row $subHeaderRow '  --------------------------------------------------------------' 'DarkCyan'
-    Write-Row ($subHeaderRow + 1) '  SUB-AGENTS (ID | WORKSPACE | AGENT | MODEL | TASK | STATE)' 'Yellow'
+      $maxTokenRows = [Math]::Max(3, $curH - 21)
+      for ($i = 0; $i -lt $maxTokenRows; $i++) {
+        $rowNum = 19 + $i
+        if ($i -lt $state.TokenModels.Count) {
+          $m = $state.TokenModels[$i]
+          $p = Shorten $m.provider 12
+          $mod = Shorten $m.model 35
+          $p_fmt = [string]$m.prompt_fmt
+          $c_fmt = [string]$m.completion_fmt
+          $t_fmt = [string]$m.total_fmt
+          $calls = [string]$m.calls
 
-    # Order sessions: WORKING first, then by recency
-    $ordered = @($script:threadCache.Values | Sort-Object {
-      if ($_.state -eq 'WORKING') { 0 } else { 1 }
-    })
-
-    $maxSubRows = $MAX_THREADS
-    if ($curH -lt 34) {
-      $maxSubRows = [Math]::Max(1, $curH - ($subHeaderRow + 3))
-    }
-
-    for ($i = 0; $i -lt $maxSubRows; $i++) {
-      $line = ''
-      $color = 'DarkGray'
-      if ($i -lt $ordered.Count) {
-        $t = $ordered[$i]
-        $sid   = Safe-Sub $t.id 0 12
-        $ws    = Shorten $t.workspace 12
-        $ag    = Shorten $t.agent 7
-        $mod   = Shorten $t.model 22
-        $task  = Shorten $t.title 24
-        $st    = [string]$t.state
-
-        $line = ('  {0,-12} | {1,-12} | {2,-7} | {3,-22} | {4,-24} [{5}]' -f $sid, $ws, $ag, $mod, $task, $st)
-        $color = if ($st -eq 'WORKING') { 'Yellow' } else { 'Gray' }
+          $line = ('  {0,-12} | {1,-35} | {2,-9} | {3,-8} | {4,-9} | {5,-5}' -f $p, $mod, $p_fmt, $c_fmt, $t_fmt, $calls)
+          $color = if ($m.provider -eq 'openrouter') { 'Magenta' } elseif ($m.provider -eq 'kilo') { 'Green' } else { 'White' }
+          Write-Row $rowNum $line $color
+        } else {
+          Write-Row $rowNum '' 'DarkGray'
+        }
       }
-      Write-Row ($subHeaderRow + 2 + $i) $line $color
-    }
+      Write-Row (19 + $maxTokenRows) '  --------------------------------------------------------------' 'DarkCyan'
+    } else {
+      # --- VIEW MODE: FLEET THREADS & LIVE LOG ---
+      $logStartRow = 15
+      if ($curH -ge 38) {
+        Write-Row 15 '  --------------------------------------------------------------' 'DarkCyan'
+        Write-Row 16 '  TOP MODEL TOKENS  [PRESS T FOR FULL BREAKDOWN]' 'Cyan'
+        for ($j = 0; $j -lt [Math]::Min(3, $state.TokenModels.Count); $j++) {
+          $tm = $state.TokenModels[$j]
+          $tLine = ('   {0,-10} {1,-30} total:{2,-8} (prompt:{3}, comp:{4})' -f $tm.provider, (Shorten $tm.model 30), $tm.total_fmt, $tm.prompt_fmt, $tm.completion_fmt)
+          Write-Row (17 + $j) $tLine 'DarkGray'
+        }
+        $logStartRow = 20
+      }
 
-    Write-Row ($subHeaderRow + 2 + $maxSubRows) '  --------------------------------------------------------------' 'DarkCyan'
+      Write-Row $logStartRow '  --------------------------------------------------------------' 'DarkCyan'
+      Write-Row ($logStartRow + 1) '  LIVE LOG' 'Yellow'
+
+      # Adaptive log lines based on terminal height
+      $maxLogLines = 5
+      if ($curH -lt ($logStartRow + 14)) { $maxLogLines = [Math]::Max(1, $curH - ($logStartRow + 10)) }
+      for ($i = 0; $i -lt $maxLogLines; $i++) {
+        $line = ''
+        if ($i -lt $logs.Count) { $line = '  ' + $logs[$i] }
+        Write-Row ($logStartRow + 2 + $i) $line 'Gray'
+      }
+
+      $subHeaderRow = $logStartRow + 2 + $maxLogLines
+      Write-Row $subHeaderRow '  --------------------------------------------------------------' 'DarkCyan'
+      Write-Row ($subHeaderRow + 1) '  SUB-AGENTS (ID | WORKSPACE | AGENT | MODEL | TASK | STATE)' 'Yellow'
+
+      # Order sessions: WORKING first, then by recency
+      $ordered = @($script:threadCache.Values | Sort-Object {
+        if ($_.state -eq 'WORKING') { 0 } else { 1 }
+      })
+
+      $maxSubRows = $MAX_THREADS
+      if ($curH -lt ($subHeaderRow + 10)) {
+        $maxSubRows = [Math]::Max(1, $curH - ($subHeaderRow + 3))
+      }
+
+      for ($i = 0; $i -lt $maxSubRows; $i++) {
+        $line = ''
+        $color = 'DarkGray'
+        if ($i -lt $ordered.Count) {
+          $t = $ordered[$i]
+          $sid   = Safe-Sub $t.id 0 12
+          $ws    = Shorten $t.workspace 12
+          $ag    = Shorten $t.agent 7
+          $mod   = Shorten $t.model 22
+          $task  = Shorten $t.title 24
+          $st    = [string]$t.state
+
+          $line = ('  {0,-12} | {1,-12} | {2,-7} | {3,-22} | {4,-24} [{5}]' -f $sid, $ws, $ag, $mod, $task, $st)
+          $color = if ($st -eq 'WORKING') { 'Yellow' } else { 'Gray' }
+        }
+        Write-Row ($subHeaderRow + 2 + $i) $line $color
+      }
+
+      Write-Row ($subHeaderRow + 2 + $maxSubRows) '  --------------------------------------------------------------' 'DarkCyan'
+    }
   } catch {
     # Ignore any redraw exceptions during dynamic screen resize
   }
@@ -372,6 +439,14 @@ try {
         if ([Console]::KeyAvailable) {
           $key = [Console]::ReadKey($true)
           if ($key.Key -eq 'Q') { break }
+          if ($key.Key -eq 'T') {
+            if ($state.ViewMode -eq 'TOKENS') {
+              $state.ViewMode = 'FLEET'
+            } else {
+              $state.ViewMode = 'TOKENS'
+            }
+            try { [Console]::Clear() } catch { try { Clear-Host } catch { } }
+          }
         }
       } catch { }
     }

@@ -1,0 +1,25 @@
+# Machine-specific telemetry and token tracking (unique per machine)
+*token-tracker*.json
+*token-usage*.json
+*.tracker.json
+*.token_cache.json
+token-tracker.json
+token-usage.json
+
+# Local environment variables and secrets (never commit API keys)
+.env
+.env.local
+*.env
+auth.json
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local scratch and logs
+*.log
+scratch/
+.local/
+*.local
+*.bak*

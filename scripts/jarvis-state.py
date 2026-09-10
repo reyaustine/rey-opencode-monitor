@@ -29,6 +29,118 @@ def extract_model_label(model_raw, default_provider='opencode'):
     except Exception:
         return str(model_raw)
 
+import socket
+
+def fmt_tokens(n):
+    if n is None:
+        return '0'
+    n = float(n)
+    if n >= 1_000_000_000:
+        return f"{n / 1_000_000_000:.1f}B"
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}k"
+    return str(int(n))
+
+def get_token_tracker_data(conn):
+    try:
+        query = """
+        SELECT 
+            coalesce(json_extract(data, '$.providerID'), 'unknown') as provider,
+            coalesce(json_extract(data, '$.modelID'), 'unknown') as model,
+            sum(coalesce(json_extract(data, '$.tokens.input'), 0)) as inp,
+            sum(coalesce(json_extract(data, '$.tokens.output'), 0)) as outp,
+            sum(coalesce(json_extract(data, '$.tokens.reasoning'), 0)) as rsn,
+            sum(coalesce(json_extract(data, '$.tokens.cache.read'), 0)) as cache_read,
+            sum(coalesce(json_extract(data, '$.tokens.cache.write'), 0)) as cache_write,
+            sum(coalesce(json_extract(data, '$.tokens.total'), 0)) as total,
+            sum(coalesce(json_extract(data, '$.cost'), 0.0)) as total_cost,
+            count(*) as calls
+        FROM message
+        WHERE json_extract(data, '$.role') = 'assistant'
+        GROUP BY provider, model
+        ORDER BY total DESC;
+        """
+        c = conn.cursor()
+        c.execute(query)
+        rows = c.fetchall()
+
+        inp_total = sum(r[2] for r in rows)
+        outp_total = sum(r[3] for r in rows)
+        rsn_total = sum(r[4] for r in rows)
+        cache_read_total = sum(r[5] for r in rows)
+        cache_write_total = sum(r[6] for r in rows)
+        grand_total = sum(r[7] for r in rows)
+        cost_total = sum(r[8] for r in rows)
+        calls_total = sum(r[9] for r in rows)
+
+        models = []
+        for r in rows:
+            provider, model, inp, outp, rsn, cr, cw, tot, cost, calls = r
+            if tot > 0 or inp > 0 or outp > 0:
+                models.append({
+                    'provider': provider,
+                    'model': model,
+                    'prompt': inp,
+                    'prompt_fmt': fmt_tokens(inp),
+                    'completion': outp,
+                    'completion_fmt': fmt_tokens(outp),
+                    'reasoning': rsn,
+                    'reasoning_fmt': fmt_tokens(rsn),
+                    'cache_read': cr,
+                    'cache_read_fmt': fmt_tokens(cr),
+                    'total': tot,
+                    'total_fmt': fmt_tokens(tot),
+                    'cost': round(cost, 4),
+                    'calls': calls
+                })
+
+        hostname = socket.gethostname()
+        username = os.environ.get('USERNAME', os.environ.get('USER', 'user'))
+
+        tracker_payload = {
+            'machine': hostname,
+            'user': username,
+            'last_updated': time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'grand_total': {
+                'total': grand_total,
+                'total_fmt': fmt_tokens(grand_total),
+                'prompt': inp_total,
+                'prompt_fmt': fmt_tokens(inp_total),
+                'completion': outp_total,
+                'completion_fmt': fmt_tokens(outp_total),
+                'reasoning': rsn_total,
+                'reasoning_fmt': fmt_tokens(rsn_total),
+                'cache_read': cache_read_total,
+                'cache_read_fmt': fmt_tokens(cache_read_total),
+                'cost': round(cost_total, 4),
+                'calls': calls_total
+            },
+            'models': models
+        }
+
+        # Save to local machine config folder (~/.config/opencode/token-tracker.json)
+        try:
+            conf_dir = os.path.expanduser('~/.config/opencode')
+            os.makedirs(conf_dir, exist_ok=True)
+            tracker_file = os.path.join(conf_dir, 'token-tracker.json')
+            with open(tracker_file, 'w', encoding='utf-8') as f:
+                json.dump(tracker_payload, f, indent=2)
+        except Exception:
+            pass
+
+        return tracker_payload
+    except Exception:
+        return {
+            'machine': socket.gethostname(),
+            'grand_total': {
+                'total': 0, 'total_fmt': '0', 'prompt': 0, 'prompt_fmt': '0',
+                'completion': 0, 'completion_fmt': '0', 'cost': 0.0, 'calls': 0
+            },
+            'models': []
+        }
+
 def get_state():
     db_path = get_db_path()
     result = {
@@ -37,7 +149,8 @@ def get_state():
         'active_threads': 0,
         'overall_activity': 'IDLE',
         'current_workspace': '-',
-        'sessions': []
+        'sessions': [],
+        'tokens': None
     }
     
     if not db_path:
@@ -156,6 +269,7 @@ def get_state():
         if sessions:
             result['current_workspace'] = sessions[0]['workspace']
         result['sessions'] = sessions
+        result['tokens'] = get_token_tracker_data(conn)
         conn.close()
     except Exception as e:
         result['ok'] = False
