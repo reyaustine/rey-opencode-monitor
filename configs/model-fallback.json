@@ -73,6 +73,33 @@
         "opencode/big-pickle"
       ]
     },
+    "qa": {
+      "fallbackModels": [
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "opencode/nemotron-3.5-lightning-free",
+        "openrouter/deepseek/deepseek-chat",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "linter": {
+      "fallbackModels": [
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ]
+    },
+    "verifier": {
+      "fallbackModels": [
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/deepseek/deepseek-chat",
+        "opencode/nemotron-3-ultra-free",
+        "opencode/big-pickle"
+      ]
+    },
 
     // ── ARCHITECTURE & ANALYSIS ──────────────────────────────────────────────
     "m3-architect": {
