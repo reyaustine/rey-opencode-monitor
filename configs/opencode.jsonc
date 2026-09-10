@@ -1,5 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "openrouter/openrouter/free",
+  "small_model": "opencode/big-pickle",
+  "instructions": [
+    "C:/Users/rey.echavez/.config/opencode/instructions/delegation.md"
+  ],
   // Free-only setup. ONLY these providers are enabled; every other provider
   // (including any credentials stored via /connect) is ignored.
   "enabled_providers": ["kilo", "opencode", "openrouter", "groq", "mistral", "huggingface"],
@@ -13,22 +18,17 @@
       },
       "whitelist": ["kilo-auto/free"]
     },
-    // Built-in opencode provider (free Zen models).
+    // Built-in opencode provider (Strictly free Zen models - muse-spark excluded to enforce swarm delegation).
     "opencode": {
       "whitelist": [
         "big-pickle",
-        "ling-3.0-flash-fin-free",
-        "mimo-v2.5-free",
-        "muse-spark-1.2-contributor-free",
-        "muse-spark-1.3-contributor-free",
+        "nemotron-3.5-lightning-free",
         "nemotron-3-ultra-free",
-        "nemotron-3.5-lightning-free"
+        "ling-3.0-flash-fin-free",
+        "mimo-v2.5-free"
       ]
     },
-    // Key-based providers below NEVER store raw keys here. Set fresh keys as
-    // user environment variables (or via /connect) AFTER revoking any key
-    // that was pasted into chat. Unset env var = empty string = disabled.
-    // Groq IDs below are the Free Plan models from Groq's rate-limits docs.
+    // Key-based providers below NEVER store raw keys here.
     "groq": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "groq",
@@ -49,12 +49,6 @@
         }
       }
     },
-    // google DISABLED 2026-09-10: every Gemini model fails via opencode right
-    // now (2.5 retired; 3.5 hangs; 3.6/flash-latest server errors - the SDK
-    // still targets the old generateContent API). Key stays in env.
-    // Re-enable by adding "google" to enabled_providers with current IDs.
-    // Mistral Free plan covers usage via $10/mo API credits (metered, not
-    // zero-cost). Retired devstral-small-2512 removed per Mistral lifecycle docs.
     "mistral": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Mistral (free credits)",
@@ -84,12 +78,41 @@
         "thinkingmachines/inkling:free"
       ]
     }
-    // huggingface is a built-in provider: do NOT add a custom block with a
-    // guessed endpoint. Connect a fresh fine-grained token via /connect
-    // (inference.serverless.write permission) after revoking the exposed one.
   },
   "disabled_providers": [],
   "agent": {
+    // Primary OpenCode Built-in Agent Overrides:
+    "build": {
+      "mode": "all",
+      "model": "openrouter/openrouter/free",
+      "description": "Primary Swarm Lead & Builder. STRICT COMPLIANCE: Decomposes tasks and delegates across the specialized pipeline (@coder, @linter, @qa, @verifier).",
+      "prompt": "You are the Primary Swarm Lead & Builder. STRICT MANDATORY DELEGATION POLICY: You MUST NEVER write code, lint, and test all in a single thread with one model. You are a coordinator and load balancer. You MUST decompose tasks and delegate across the specialized subagents using @mention:\n1. @coder for code implementation\n2. Parallel verification fan-out: @linter (syntax & lint), @qa (test runner), and @verifier (logic gaps & functional integrity)\n3. @reviewer for sign-off.\nFor exploring the repository, invoke @explore."
+    },
+    "explore": {
+      "mode": "all",
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "description": "Fast codebase explorer and file search specialist.",
+      "prompt": "You are the codebase exploration specialist. Locate files, grep patterns, and inspect structures with maximum speed and minimal verbosity."
+    },
+    "plan": {
+      "mode": "all",
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "description": "High-capacity reasoning and architectural planning specialist.",
+      "prompt": "You are the Strategic Planning Specialist. Design step-by-step implementation plans, identify architectural risks, and verify dependencies before coding starts."
+    },
+    "general": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "General conversational and troubleshooting agent.",
+      "prompt": "You are a versatile engineering assistant. Provide direct, factual, and actionable solutions."
+    },
+    "compaction": {
+      "mode": "all",
+      "model": "opencode/big-pickle",
+      "description": "Context summarizer and session compaction engine."
+    },
+
+    // Swarm Specialist Fleet:
     "orchestrator": {
       "mode": "all",
       "model": "openrouter/openrouter/free",
