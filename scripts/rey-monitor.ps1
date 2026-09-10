@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -161,6 +161,7 @@ function Refresh-Status {
       $pyOut = & python "$pyScript" 2>$null
       if ($pyOut) {
         $dbData = $pyOut | ConvertFrom-Json
+        if ($dbData.ok) {
           $state.ThreadCount = [int]$dbData.active_threads
           $state.Workspace   = [string]$dbData.current_workspace
           if ($dbData.override_model) {
