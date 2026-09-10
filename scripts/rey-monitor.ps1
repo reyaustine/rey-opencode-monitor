@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -165,8 +165,13 @@ function Refresh-Status {
         if ($dbData.ok) {
           $state.ThreadCount = [int]$dbData.active_threads
           $state.Workspace   = [string]$dbData.current_workspace
-          if ($dbData.override_model) {
+          if ($dbData.rotation -and $dbData.rotation.active) {
+            $state.DefaultModel = "$($dbData.rotation.summary) [ROTATING]"
+          } elseif ($dbData.override_model) {
             $state.DefaultModel = "$($dbData.override_model) [LOCKED]"
+          }
+          if ($dbData.rotation_event) {
+            Add-Log ("[ROTATE] " + $dbData.rotation_event)
           }
 
           $sessions = @($dbData.sessions)

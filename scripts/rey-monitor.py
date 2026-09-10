@@ -395,8 +395,12 @@ class ReyMonitor:
             if db_data and db_data.get('ok'):
                 self.state['thread_count'] = int(db_data.get('active_threads', 0))
                 self.state['workspace'] = str(db_data.get('current_workspace', '-'))
-                if db_data.get('override_model'):
+                if db_data.get('rotation') and db_data['rotation'].get('active'):
+                    self.state['default_model'] = f"{db_data['rotation'].get('summary')} [ROTATING]"
+                elif db_data.get('override_model'):
                     self.state['default_model'] = f"{db_data['override_model']} [LOCKED]"
+                if db_data.get('rotation_event'):
+                    self.add_log(f"[ROTATE] {db_data['rotation_event']}")
 
                 sessions = db_data.get('sessions', [])
                 live_ids = {s['id'] for s in sessions}

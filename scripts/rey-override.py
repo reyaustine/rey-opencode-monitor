@@ -84,25 +84,11 @@ def clean_json_text(text):
     cleaned = re.sub(r",\s*([\]}])", r"\1", cleaned)
     return cleaned
 
-def set_override(full_model_id):
-    """Enforces the model override everywhere."""
+def _apply_model_systemwide(full_model_id, verbose=True):
+    """Applies model across opencode.json, opencode.jsonc, opencode.db, and desktop dat files."""
     provider_id, raw_model_id = parse_model_string(full_model_id)
 
-    # 1. Update override lock file
-    lock_data = {
-        "model": full_model_id,
-        "provider": provider_id,
-        "raw_model": raw_model_id,
-        "active": True
-    }
-    try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(OVERRIDE_LOCK, "w", encoding="utf-8") as f:
-            json.dump(lock_data, f, indent=2)
-    except Exception as e:
-        print(f"[!] Could not write override lock: {e}")
-
-    # 2. Update opencode.json & opencode.jsonc
+    # 1. Update opencode.json & opencode.jsonc
     for path in [CONFIG_JSON, CONFIG_JSONC]:
         if os.path.exists(path):
             try:
@@ -116,9 +102,10 @@ def set_override(full_model_id):
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
             except Exception as e:
-                print(f"[!] Error updating {path}: {e}")
+                if verbose:
+                    print(f"[!] Error updating {path}: {e}")
 
-    # Also mirror into opencode-swarm-pack configs
+    # Mirror into repo configs if local
     local_repo_configs = [
         os.path.join(os.path.dirname(__file__), "..", "configs", "opencode.json"),
         os.path.join(os.path.dirname(__file__), "..", "configs", "opencode.jsonc")
@@ -138,7 +125,7 @@ def set_override(full_model_id):
             except Exception:
                 pass
 
-    # 3. Update active sessions in SQLite opencode.db
+    # 2. Update active sessions in SQLite opencode.db
     if os.path.exists(DB_PATH):
         try:
             conn = sqlite3.connect(DB_PATH)
@@ -157,11 +144,13 @@ def set_override(full_model_id):
             updated_sessions = c.rowcount
             conn.commit()
             conn.close()
-            print(f"[+] Overrode {updated_sessions} active/recent sessions in SQLite database.")
+            if verbose:
+                print(f"[+] Overrode {updated_sessions} active/recent sessions in SQLite database.")
         except Exception as e:
-            print(f"[!] SQLite session update error: {e}")
+            if verbose:
+                print(f"[!] SQLite session update error: {e}")
 
-    # 4. Update desktop dat files if present
+    # 3. Update desktop dat files if present
     if os.path.exists(DESKTOP_DIR):
         dat_files = glob.glob(os.path.join(DESKTOP_DIR, "*.dat"))
         for fpath in dat_files:
@@ -176,16 +165,143 @@ def set_override(full_model_id):
             except Exception:
                 pass
 
+def set_override(full_model_id):
+    """Enforces a single model override everywhere."""
+    provider_id, raw_model_id = parse_model_string(full_model_id)
+
+    lock_data = {
+        "mode": "single",
+        "model": full_model_id,
+        "provider": provider_id,
+        "raw_model": raw_model_id,
+        "active": True
+    }
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(OVERRIDE_LOCK, "w", encoding="utf-8") as f:
+            json.dump(lock_data, f, indent=2)
+    except Exception as e:
+        print(f"[!] Could not write override lock: {e}")
+
+    _apply_model_systemwide(full_model_id)
     print(f"\n[OK] Model override strictly locked to: {full_model_id}")
     print("[*] All active sessions, configs, and IDE defaults now use this model!")
 
+def set_rotation(codes_or_str):
+    """
+    Configures a rotating model pool that loops through 2-5 models,
+    switching to the next model after every prompt.
+    """
+    if isinstance(codes_or_str, str):
+        raw_items = [p.strip().upper() for p in re.split(r'[,;\s]+', codes_or_str) if p.strip()]
+    else:
+        raw_items = [str(p).strip().upper() for p in codes_or_str if str(p).strip()]
+
+    all_models = {**PAGE1_MODELS, **PAGE2_MODELS}
+
+    pool = []
+    invalid = []
+    for item in raw_items:
+        if item in all_models:
+            mid, prov, desc = all_models[item]
+            pool.append({
+                "code": item,
+                "model": mid,
+                "provider": prov,
+                "raw_model": parse_model_string(mid)[1],
+                "desc": desc
+            })
+        else:
+            if "/" in item:
+                prov, raw = parse_model_string(item.lower())
+                pool.append({
+                    "code": raw[:10],
+                    "model": item.lower(),
+                    "provider": prov,
+                    "raw_model": raw,
+                    "desc": item.lower()
+                })
+            else:
+                invalid.append(item)
+
+    if invalid:
+        print(f"\n[!] Invalid model code(s): {', '.join(invalid)}")
+        print("[i] Available codes: 1-7 (Page 1), A-W (Page 2). Example: W, U, T")
+        return False
+
+    if len(pool) < 2:
+        print(f"\n[!] Rotation pool requires at least 2 models (you provided {len(pool)}). Example: W, U, T")
+        return False
+
+    if len(pool) > 5:
+        print(f"\n[!] Maximum 5 models allowed in rotation pool (you provided {len(pool)}).")
+        return False
+
+    latest_prompt_id = None
+    if os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT id FROM message WHERE json_extract(data, '$.role') = 'user' ORDER BY time_created DESC LIMIT 1")
+            row = c.fetchone()
+            if row:
+                latest_prompt_id = row[0]
+            conn.close()
+        except Exception:
+            pass
+
+    first = pool[0]
+    lock_data = {
+        "mode": "rotate",
+        "active": True,
+        "pool": pool,
+        "current_index": 0,
+        "model": first["model"],
+        "provider": first["provider"],
+        "raw_model": first["raw_model"],
+        "last_prompt_id": latest_prompt_id,
+        "pending_rotation": False
+    }
+
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        with open(OVERRIDE_LOCK, "w", encoding="utf-8") as f:
+            json.dump(lock_data, f, indent=2)
+    except Exception as e:
+        print(f"[!] Could not write override lock: {e}")
+
+    _apply_model_systemwide(first["model"])
+
+    print("\n" + "=" * 75)
+    print(" [+] ROTATING MODEL POOL ACTIVATED! (Auto-loops after every prompt)")
+    print("=" * 75)
+    for idx, item in enumerate(pool):
+        active_tag = "  <-- ACTIVE FOR PROMPT 1" if idx == 0 else ""
+        print(f"   [{idx + 1}/{len(pool)}] [{item['code']}] {item['desc']}{active_tag}")
+        print(f"         ID: {item['model']}")
+    print("-" * 75)
+    seq = " -> ".join(f"[{p['code']}]" for p in pool)
+    print(f" Loop sequence: {seq} -> (loops back to [{pool[0]['code']}])")
+    print(" R.E.Y. will automatically rotate to the next model in the pool after each prompt!")
+    print("=" * 75 + "\n")
+    return True
+
 def clear_override():
-    """Removes the active override lock."""
+    """Removes the active override or rotation lock."""
     if os.path.exists(OVERRIDE_LOCK):
         os.remove(OVERRIDE_LOCK)
-        print("[+] Model override cleared. OpenCode will use standard config defaults.")
+        print("[+] Model override and rotation cleared. OpenCode will use config defaults.")
     else:
         print("[i] No active model override was set.")
+
+def parse_multi_input(text):
+    """Checks if input represents a multi-model rotation request."""
+    if not text:
+        return None
+    tokens = [p.strip().upper() for p in re.split(r'[,;\s]+', text) if p.strip()]
+    if len(tokens) >= 2:
+        return tokens
+    return None
 
 def show_page2():
     """Page 2: Full listing of remaining 23 allowlisted models (zero manual typing)."""
@@ -201,7 +317,7 @@ def show_page2():
     print("=" * 75)
 
     try:
-        choice = input("\n Select model [A-W] or 0 to go back: ").strip().upper()
+        choice = input("\n Select model [A-W] or enter 2-5 models (e.g. W, U, T), or 0 to go back: ").strip()
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
         return
@@ -209,14 +325,24 @@ def show_page2():
     if choice == "0" or not choice:
         interactive_menu()
         return
-    elif choice in PAGE2_MODELS:
-        selected_model = PAGE2_MODELS[choice][0]
+
+    multi = parse_multi_input(choice)
+    if multi:
+        set_rotation(multi)
+        return
+
+    choice_upper = choice.upper()
+    if choice_upper in PAGE2_MODELS:
+        selected_model = PAGE2_MODELS[choice_upper][0]
+        set_override(selected_model)
+    elif choice_upper in PAGE1_MODELS:
+        selected_model = PAGE1_MODELS[choice_upper][0]
         set_override(selected_model)
     else:
         print("Invalid choice.")
 
 def interactive_menu():
-    """CLI interactive model picker (Page 1: Top 7 + Option 8 for Page 2)."""
+    """CLI interactive model picker (Page 1: Top 7 + Option 8 for Page 2 + Rotation Pool)."""
     print("\n" + "=" * 75)
     print(" R.E.Y. MODEL OVERRIDE CONTROLLER (Enforces Model on OpenCode IDE)")
     print("=" * 75)
@@ -225,7 +351,17 @@ def interactive_menu():
     if os.path.exists(OVERRIDE_LOCK):
         try:
             with open(OVERRIDE_LOCK, "r", encoding="utf-8") as f:
-                current_lock = json.load(f).get("model")
+                ldata = json.load(f)
+                if ldata.get("active"):
+                    if ldata.get("mode") == "rotate":
+                        pool = ldata.get("pool", [])
+                        curr_idx = ldata.get("current_index", 0)
+                        flow = " -> ".join(f"[{p['code']}]" + ("*" if i == curr_idx else "") for i, p in enumerate(pool))
+                        curr_code = pool[curr_idx]["code"] if curr_idx < len(pool) else "?"
+                        curr_model = ldata.get("model", "")
+                        current_lock = f"[ROTATING POOL: {flow}] Current: [{curr_code}] {curr_model}"
+                    else:
+                        current_lock = ldata.get("model")
         except Exception:
             pass
 
@@ -239,12 +375,13 @@ def interactive_menu():
         print(f" [{k}] {desc}")
         print(f"     ID: {model_id}")
     print(" [8] View Other Allowlisted Models (Page 2: Options A-W, Zero Typing)")
-    print(" [9] Clear / Remove Override")
+    print(" [R] Setup Rotating Model Pool (e.g. W, U, T to loop 2-5 models per prompt)")
+    print(" [9] Clear / Remove Override & Rotation")
     print(" [0] Cancel (Keep current)")
     print("=" * 75)
 
     try:
-        choice = input("\n Select option [0-9]: ").strip()
+        choice = input("\n Select option [0-9, R] or enter 2-5 models (e.g. W, U, T): ").strip()
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
         return
@@ -252,8 +389,26 @@ def interactive_menu():
     if choice == "0" or not choice:
         print("Cancelled.")
         return
+
+    multi = parse_multi_input(choice)
+    if multi:
+        set_rotation(multi)
+        return
+
+    choice_upper = choice.upper()
+    if choice_upper == "R":
+        try:
+            rot_input = input("\n Enter 2 to 5 model codes to rotate (e.g. W, U, T or 1, 2, 3): ").strip()
+            if rot_input:
+                set_rotation(rot_input)
+        except (KeyboardInterrupt, EOFError):
+            print("\nCancelled.")
+        return
     elif choice in PAGE1_MODELS:
         selected_model = PAGE1_MODELS[choice][0]
+        set_override(selected_model)
+    elif choice_upper in PAGE2_MODELS:
+        selected_model = PAGE2_MODELS[choice_upper][0]
         set_override(selected_model)
     elif choice == "8":
         show_page2()
@@ -271,6 +426,14 @@ if __name__ == "__main__":
             interactive_menu()
         elif arg in ("--page2", "-p2", "page2"):
             show_page2()
+        elif arg in ("--rotate", "-r", "rotate"):
+            if len(sys.argv) > 2:
+                set_rotation(" ".join(sys.argv[2:]))
+            else:
+                interactive_menu()
+        elif "," in arg or len(sys.argv) > 2:
+            items = sys.argv[1:]
+            set_rotation(" ".join(items))
         else:
             set_override(arg)
     else:

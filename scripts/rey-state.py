@@ -143,6 +143,36 @@ def get_token_tracker_data(conn):
             'models': []
         }
 
+def apply_config_model(full_model_id):
+    """Updates opencode.json & opencode.jsonc with the given model ID."""
+    user_home = os.path.expanduser('~')
+    cfg_dir = os.path.join(user_home, '.config', 'opencode')
+    for fname in ['opencode.json', 'opencode.jsonc']:
+        fpath = os.path.join(cfg_dir, fname)
+        if os.path.exists(fpath):
+            try:
+                with open(fpath, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                new_content = re.sub(r'("model"\s*:\s*)"[^"]+"', rf'\1"{full_model_id}"', content)
+                with open(fpath, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+            except Exception:
+                pass
+
+def update_db_sessions(raw_model, provider):
+    """Updates active sessions in SQLite opencode.db with the given model."""
+    try:
+        db_path = get_db_path()
+        if db_path and os.path.exists(db_path):
+            wconn = sqlite3.connect(db_path, timeout=2.0)
+            cutoff_ms = int((time.time() - 3600) * 1000)
+            new_m = json.dumps({"id": raw_model, "providerID": provider, "variant": "default"})
+            wconn.execute("UPDATE session SET model = ? WHERE time_updated > ?", (new_m, cutoff_ms))
+            wconn.commit()
+            wconn.close()
+    except Exception:
+        pass
+
 def get_state():
     db_path = get_db_path()
     result = {
@@ -273,24 +303,92 @@ def get_state():
         result['sessions'] = sessions
         result['tokens'] = get_token_tracker_data(conn)
 
-        # Check for active model override lock
+        # Check for active model override lock or rotating pool
         user_home = os.path.expanduser('~')
         override_lock_path = os.path.join(user_home, '.config', 'opencode', 'override-lock.json')
         result['override_model'] = None
+        result['rotation'] = None
+        result['rotation_event'] = None
+
         if os.path.exists(override_lock_path):
             try:
                 with open(override_lock_path, 'r', encoding='utf-8') as lf:
                     ldata = json.load(lf)
-                    ov_model = ldata.get('model')
-                    if ov_model and ldata.get('active', True):
-                        result['override_model'] = ov_model
-                        ov_parts = ov_model.split('/', 1)
-                        ov_prov = ov_parts[0] if len(ov_parts) == 2 else 'openrouter'
-                        ov_id = ov_parts[1] if len(ov_parts) == 2 else ov_model
-                        new_m = json.dumps({"id": ov_id, "providerID": ov_prov, "variant": "default"})
-                        cutoff_ms = int((time.time() - 3600) * 1000)
-                        conn.execute("UPDATE session SET model = ? WHERE time_updated > ?", (new_m, cutoff_ms))
-                        conn.commit()
+
+                if ldata.get('active', True):
+                    is_rotate = (ldata.get('mode') == 'rotate')
+                    pool = ldata.get('pool', [])
+
+                    if is_rotate and pool:
+                        curr_idx = ldata.get('current_index', 0)
+                        if curr_idx >= len(pool):
+                            curr_idx = 0
+                        curr_item = pool[curr_idx]
+                        last_prompt_id = ldata.get('last_prompt_id')
+                        pending_rotation = ldata.get('pending_rotation', False)
+
+                        # Find latest user message to establish prompt boundary
+                        c = conn.cursor()
+                        c.execute("SELECT id, time_created FROM message WHERE json_extract(data, '$.role') = 'user' ORDER BY time_created DESC LIMIT 1")
+                        prompt_row = c.fetchone()
+                        latest_prompt_id = prompt_row[0] if prompt_row else None
+
+                        do_rotate = False
+                        lock_modified = False
+
+                        if last_prompt_id is None and latest_prompt_id:
+                            ldata['last_prompt_id'] = latest_prompt_id
+                            lock_modified = True
+                        elif latest_prompt_id and latest_prompt_id != last_prompt_id:
+                            ldata['last_prompt_id'] = latest_prompt_id
+                            lock_modified = True
+                            if active_count > 0:
+                                ldata['pending_rotation'] = True
+                            else:
+                                do_rotate = True
+                        elif pending_rotation and active_count == 0:
+                            do_rotate = True
+
+                        if do_rotate:
+                            next_idx = (curr_idx + 1) % len(pool)
+                            next_item = pool[next_idx]
+                            ldata['current_index'] = next_idx
+                            ldata['model'] = next_item['model']
+                            ldata['provider'] = next_item['provider']
+                            ldata['raw_model'] = next_item['raw_model']
+                            ldata['pending_rotation'] = False
+                            lock_modified = True
+
+                            apply_config_model(next_item['model'])
+                            update_db_sessions(next_item['raw_model'], next_item['provider'])
+
+                            curr_idx = next_idx
+                            curr_item = next_item
+                            result['rotation_event'] = f"Switched to [{next_item['code']}] {next_item['raw_model']} for next prompt"
+
+                        if lock_modified:
+                            with open(override_lock_path, 'w', encoding='utf-8') as lf:
+                                json.dump(ldata, lf, indent=2)
+
+                        result['override_model'] = curr_item['model']
+                        flow = '->'.join(p['code'] + ('*' if i == curr_idx else '') for i, p in enumerate(pool))
+                        result['rotation'] = {
+                            'active': True,
+                            'summary': f"[{flow}] {curr_item['raw_model']}",
+                            'pool': [p['code'] for p in pool],
+                            'current_code': curr_item['code'],
+                            'current_model': curr_item['model'],
+                            'current_index': curr_idx,
+                            'total': len(pool)
+                        }
+                    else:
+                        ov_model = ldata.get('model')
+                        if ov_model:
+                            result['override_model'] = ov_model
+                            ov_parts = ov_model.split('/', 1)
+                            ov_prov = ov_parts[0] if len(ov_parts) == 2 else 'openrouter'
+                            ov_id = ov_parts[1] if len(ov_parts) == 2 else ov_model
+                            update_db_sessions(ov_id, ov_prov)
             except Exception:
                 pass
 
