@@ -27,6 +27,10 @@
     "opencode": {
       "whitelist": [
         "big-pickle",
+        "muse-spark-1.3-contributor-free",
+        "muse-spark-1.2-contributor-free",
+        "muse-spark-1.3-free",
+        "muse-spark-1.2-free",
         "nemotron-3.5-lightning-free",
         "nemotron-3-ultra-free",
         "ling-3.0-flash-fin-free",

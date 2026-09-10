@@ -3,7 +3,7 @@
 R.E.Y. // Model Override Engine
 Enforces a chosen default model across OpenCode global configs, SQLite sessions,
 and desktop IDE preferences, overriding whatever was selected in the IDE.
-Zero manual typing: Page 1 (Top 7) + Page 2 (Options A-T for all 28 models).
+Zero manual typing: Page 1 (Top 7) + Page 2 (Options A-W for all 30 models).
 """
 
 import sys
@@ -56,7 +56,10 @@ PAGE2_MODELS = {
     "Q": ("opencode/nemotron-3.5-lightning-free", "opencode", "OpenCode Nemotron 3.5 Lightning (Free)"),
     "R": ("opencode/nemotron-3-ultra-free", "opencode", "OpenCode Nemotron 3 Ultra (Free)"),
     "S": ("opencode/ling-3.0-flash-fin-free", "opencode", "OpenCode Ling 3.0 Flash Fin (Free)"),
-    "T": ("opencode/mimo-v2.5-free", "opencode", "OpenCode Mimo v2.5 (Free)")
+    "T": ("opencode/mimo-v2.5-free", "opencode", "OpenCode Mimo v2.5 (Free)"),
+    "U": ("opencode/muse-spark-1.3-contributor-free", "opencode", "OpenCode Muse Spark 1.3 Contributor (Free)"),
+    "V": ("opencode/muse-spark-1.2-contributor-free", "opencode", "OpenCode Muse Spark 1.2 Contributor (Free)"),
+    "W": ("opencode/muse-spark-1.3-free", "opencode", "OpenCode Muse Spark 1.3 Standard (Free)")
 }
 
 def parse_model_string(model_str):
@@ -148,7 +151,7 @@ def set_override(full_model_id):
             import time
             cutoff_ms = int((time.time() - (48 * 3600)) * 1000)
             c.execute(
-                "UPDATE session SET model = ? WHERE time_updated > ? OR model LIKE '%muse-spark%'",
+                "UPDATE session SET model = ? WHERE time_updated > ?",
                 (new_model_json, cutoff_ms)
             )
             updated_sessions = c.rowcount
@@ -165,7 +168,7 @@ def set_override(full_model_id):
             try:
                 with open(fpath, "r", encoding="utf-8") as f:
                     dcontent = f.read()
-                if "model-selection" in dcontent or "muse-spark" in dcontent:
+                if "model-selection" in dcontent:
                     dcontent = re.sub(r'"modelID":"[^"]+"', f'"modelID":"{raw_model_id}"', dcontent)
                     dcontent = re.sub(r'"providerID":"[^"]+"', f'"providerID":"{provider_id}"', dcontent)
                     with open(fpath, "w", encoding="utf-8") as f:
@@ -185,7 +188,7 @@ def clear_override():
         print("[i] No active model override was set.")
 
 def show_page2():
-    """Page 2: Full listing of remaining 20 allowlisted models (zero manual typing)."""
+    """Page 2: Full listing of remaining 23 allowlisted models (zero manual typing)."""
     print("\n" + "=" * 75)
     print(" R.E.Y. MODEL OVERRIDE - PAGE 2: ALL ALLOWLISTED FLEET MODELS (ZERO TYPING)")
     print("=" * 75)
@@ -198,7 +201,7 @@ def show_page2():
     print("=" * 75)
 
     try:
-        choice = input("\n Select model [A-T] or 0 to go back: ").strip().upper()
+        choice = input("\n Select model [A-W] or 0 to go back: ").strip().upper()
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
         return
@@ -235,7 +238,7 @@ def interactive_menu():
     for k, (model_id, prov, desc) in sorted(PAGE1_MODELS.items()):
         print(f" [{k}] {desc}")
         print(f"     ID: {model_id}")
-    print(" [8] View Other Allowlisted Models (Page 2: Options A-T, Zero Typing)")
+    print(" [8] View Other Allowlisted Models (Page 2: Options A-W, Zero Typing)")
     print(" [9] Clear / Remove Override")
     print(" [0] Cancel (Keep current)")
     print("=" * 75)

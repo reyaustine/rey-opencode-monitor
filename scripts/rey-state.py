@@ -284,12 +284,12 @@ def get_state():
                     ov_model = ldata.get('model')
                     if ov_model and ldata.get('active', True):
                         result['override_model'] = ov_model
-                        # Active cleansing: enforce on any session with muse-spark
                         ov_parts = ov_model.split('/', 1)
                         ov_prov = ov_parts[0] if len(ov_parts) == 2 else 'openrouter'
                         ov_id = ov_parts[1] if len(ov_parts) == 2 else ov_model
                         new_m = json.dumps({"id": ov_id, "providerID": ov_prov, "variant": "default"})
-                        conn.execute("UPDATE session SET model = ? WHERE model LIKE '%muse-spark%'", (new_m,))
+                        cutoff_ms = int((time.time() - 3600) * 1000)
+                        conn.execute("UPDATE session SET model = ? WHERE time_updated > ?", (new_m, cutoff_ms))
                         conn.commit()
             except Exception:
                 pass
