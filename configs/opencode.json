@@ -1,13 +1,159 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "kilo/kilo-auto/free",
-  "small_model": "opencode/big-pickle",
-  "instructions": ["~/.config/opencode/instructions/delegation.md"],
-  "command": {
-    "free-model-check": {
-      "template": "Run the free-model health check: confirm the resolved default model is kilo/kilo-auto/free, run `opencode providers list --pure`, verify only the allowlisted providers (kilo, opencode, groq, google, mistral, huggingface) resolve, smoke-test the default model with `opencode run --format json`, and report any non-zero cost, missing key, or unavailable provider. Do not use or suggest paid models.",
-      "description": "Free-only provider/model health check",
-      "agent": "build"
+  "enabled_providers": [
+    "kilo",
+    "opencode",
+    "openrouter",
+    "groq",
+    "mistral",
+    "huggingface"
+  ],
+  "provider": {
+    "kilo": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Kilo Code (free, no key)",
+      "options": {
+        "baseURL": "https://api.kilo.ai/api/gateway/v1"
+      },
+      "whitelist": [
+        "kilo-auto/free"
+      ]
+    },
+    "opencode": {
+      "whitelist": [
+        "big-pickle",
+        "ling-3.0-flash-fin-free",
+        "mimo-v2.5-free",
+        "muse-spark-1.2-contributor-free",
+        "muse-spark-1.3-contributor-free",
+        "nemotron-3-ultra-free",
+        "nemotron-3.5-lightning-free"
+      ]
+    },
+    "groq": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "groq",
+      "options": {
+        "baseURL": "https://api.groq.com/openai/v1",
+        "apiKey": "{env:GROQ_API_KEY}"
+      },
+      "whitelist": [
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-safeguard-20b",
+        "qwen/qwen3.6-27b",
+        "qwen/qwen3.8-27b"
+      ],
+      "models": {
+        "llama-3.3-70b-versatile": {
+          "name": "llama-3.3-70b-versatile"
+        }
+      }
+    },
+    "mistral": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Mistral (free credits)",
+      "options": {
+        "baseURL": "https://api.mistral.ai/v1",
+        "apiKey": "{env:MISTRAL_API_KEY}"
+      },
+      "whitelist": [
+        "codestral-latest",
+        "mistral-small-4"
+      ]
+    },
+    "openrouter": {
+      "name": "OpenRouter (free models)",
+      "whitelist": [
+        "openrouter/free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "google/gemma-4-31b-it:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free",
+        "poolside/laguna-s-2.1:free",
+        "nex-agi/nex-n2.5-pro:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "thinkingmachines/inkling:free"
+      ]
+    }
+  },
+  "disabled_providers": [],
+  "agent": {
+    "orchestrator": {
+      "mode": "all",
+      "model": "openrouter/openrouter/free",
+      "description": "Lead Swarm Load Balancer & Orchestrator. Decomposes tasks and delegates across the specialized pipeline.",
+      "prompt": "You are the Lead Swarm Load Balancer & Orchestrator. When executing tasks, decompose the workflow and load-balance across specialized agents using @mention:\n1. @coder (implement core changes)\n2. @linter (check syntax, types, brackets, imports, and lint errors)\n3. @qa (run test suites, verify builds, and execute functional tests)\n4. @verifier (deep logic trace, check for functional gaps, regressions, and unhandled states)\n5. @reviewer (final holistic sign-off)\nFan out verification tasks in parallel across different providers to balance throughput and prevent rate limits."
+    },
+    "coder": {
+      "mode": "all",
+      "model": "openrouter/cohere/north-mini-code:free",
+      "description": "Specialist for complex algorithmic code generation, refactoring, and logic.",
+      "prompt": "You are a senior developer. Write clean, exact, production-ready code. No placeholders."
+    },
+    "linter": {
+      "mode": "all",
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "description": "Syntax, static analysis, and lint specialist. Checks diffs for syntax errors, missing brackets, malformed configs, and bad imports.",
+      "prompt": "You are the Syntax & Lint Specialist. Your sole focus is analyzing code changes for syntax errors, type mismatches, missing imports, unclosed brackets, formatting violations, and invalid configuration syntax. Report exact file and line numbers with immediate fixes."
+    },
+    "qa": {
+      "mode": "all",
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "description": "Quality Assurance & Test Specialist. Runs test suites, validates functional requirements, and tests edge cases.",
+      "prompt": "You are the Quality Assurance & Test Specialist. Execute automated tests, verify build pipelines, validate against acceptance criteria, and ensure existing functionality did not break."
+    },
+    "tester": {
+      "mode": "all",
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "description": "Writes unit tests, integration tests, and validates edge cases. Specialist for TDD and QA."
+    },
+    "verifier": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "Logic and functional gap verifier. Analyzes fresh changes for missing edge cases, race conditions, logic errors, and architectural drift.",
+      "prompt": "You are the Logic & Functional Gap Verifier. After fresh code changes are written, perform a deep logical trace: verify that business logic is sound, error handling is exhaustive, edge cases are covered, no unintended side effects were introduced, and all user requirements were satisfied."
+    },
+    "reviewer": {
+      "mode": "all",
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "description": "Thorough code reviewer and QA verifier. Validates logic, catches regressions, and checks edge cases."
+    },
+    "explorer": {
+      "mode": "all",
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "description": "Fast explorer for quick patches, CSS tweaks, UI updates, and surgical file edits.",
+      "prompt": "You are a rapid-execution developer. Make precise, minimal changes. Speed over verbosity."
+    },
+    "architect": {
+      "mode": "all",
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "description": "Heavyweight agent for architecture design, deep repository understanding, and system design."
+    },
+    "critic": {
+      "mode": "all",
+      "model": "openrouter/liquid/lfm-2.5-2.6b:free",
+      "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and stress-testing plans."
+    },
+    "researcher": {
+      "mode": "all",
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "description": "Research agent for investigating libraries, APIs, best practices, and gathering context."
+    },
+    "docs": {
+      "mode": "all",
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "description": "Writes and maintains developer documentation, READMEs, API docs, and inline code comments."
+    },
+    "designer": {
+      "mode": "all",
+      "model": "openrouter/thinkingmachines/inkling:free",
+      "description": "UI/UX design agent. Creates component designs, layout plans, and visual specifications."
     }
   }
 }
