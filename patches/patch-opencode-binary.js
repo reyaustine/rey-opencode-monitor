@@ -94,7 +94,7 @@ try {
   fs.closeSync(fd);
 
   if (patched) {
-    console.log('[✓] opencode binary successfully patched (3-second maximum retry backoff).');
+    console.log('[✓] opencode CLI binary successfully patched (3-second maximum retry backoff).');
   } else {
     console.log('[*] Target pattern not found or already optimized in this build.');
   }
@@ -106,3 +106,60 @@ try {
     console.error('[-] Patch error:', err.message);
   }
 }
+
+// 2. Patch OpenCode Desktop IDE app.asar
+function patchDesktopAsar() {
+  const asarPaths = [
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', '@opencode-aidesktop', 'resources', 'app.asar'),
+    'C:/Users/rey.echavez/AppData/Local/Programs/@opencode-aidesktop/resources/app.asar'
+  ];
+
+  let asarPath = null;
+  for (const p of asarPaths) {
+    if (fs.existsSync(p)) {
+      asarPath = p;
+      break;
+    }
+  }
+
+  if (!asarPath) {
+    return;
+  }
+
+  console.log('[*] Found OpenCode Desktop app.asar at:', asarPath);
+  const targetAsar = Buffer.from('RETRY_MAX_DELAY_NO_HEADERS = 3e4, RETRY_MAX_DELAY = 2147483647, RETRY_MAX_RETRIES = 5,');
+  const replacementAsar = Buffer.from('RETRY_MAX_DELAY_NO_HEADERS = 3e3, RETRY_MAX_DELAY = 3000      , RETRY_MAX_RETRIES = 2,');
+
+  try {
+    const bakPath = asarPath + '.bak';
+    if (!fs.existsSync(bakPath)) {
+      console.log('[*] Creating desktop backup:', bakPath);
+      fs.copyFileSync(asarPath, bakPath);
+    }
+
+    const data = fs.readFileSync(asarPath);
+    if (data.includes(replacementAsar)) {
+      console.log('[✓] OpenCode Desktop app.asar is already patched (attempt #2 only, 3s countdown).');
+      return;
+    }
+
+    const idx = data.indexOf(targetAsar);
+    if (idx !== -1) {
+      console.log(`[+] Found target sequence at offset ${idx} in app.asar. Patching to attempt #2 & 3s delay...`);
+      const fd = fs.openSync(asarPath, 'r+');
+      fs.writeSync(fd, replacementAsar, 0, replacementAsar.length, idx);
+      fs.closeSync(fd);
+      console.log('[✓] OpenCode Desktop app.asar successfully patched (attempt #2 only, 3s countdown).');
+    } else {
+      console.log('[*] Target sequence not found in app.asar.');
+    }
+  } catch (err) {
+    if (err.code === 'EBUSY') {
+      console.warn('[!] app.asar is locked by running OpenCode process.');
+    } else {
+      console.warn('[-] Error patching app.asar:', err.message);
+    }
+  }
+}
+
+patchDesktopAsar();

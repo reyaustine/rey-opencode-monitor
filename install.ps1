@@ -66,7 +66,7 @@ if (-not (Get-Command opencode -ErrorAction SilentlyContinue)) {
 # 2. Add required plugins
 Write-Host "`n[*] Ensuring OpenCode plugins are installed..." -ForegroundColor White
 try {
-  opencode plugin add @smart-coders-hq/opencode-model-fallback 2>$null
+  opencode plugin -g @smart-coders-hq/opencode-model-fallback 2>$null
   Write-Host "  [OK] Plugins verified." -ForegroundColor Green
 } catch {
   Write-Host "  [!] Note: Plugin registration will finalize on next opencode run." -ForegroundColor Yellow

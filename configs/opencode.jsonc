@@ -187,5 +187,8 @@
       "model": "openrouter/thinkingmachines/inkling:free",
       "description": "UI/UX design agent. Creates component designs, layout plans, and visual specifications."
     }
-  }
+  },
+  "plugin": [
+    "@smart-coders-hq/opencode-model-fallback"
+  ]
 }

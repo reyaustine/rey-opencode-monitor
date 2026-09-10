@@ -16,11 +16,41 @@
     // Global fallback — all agents inherit this if no specific chain defined
     "*": {
       "fallbackModels": [
-        "opencode/mimo-v2.5-free",
-        "opencode/ling-3.0-flash-fin-free",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "groq/qwen/qwen3.8-27b",
+        "kilo/kilo-auto/free",
         "opencode/nemotron-3.5-lightning-free",
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/deepseek/deepseek-chat",
+        "opencode/ling-3.0-flash-fin-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── SWARM LEAD & BUILDER ──────────────────────────────────────────────────
+    "build": {
+      "fallbackModels": [
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "groq/qwen/qwen3.8-27b",
+        "kilo/kilo-auto/free",
+        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ]
+    },
+
+    // ── EXPLORATION SPECIALIST ───────────────────────────────────────────────
+    "explore": {
+      "fallbackModels": [
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "kilo/kilo-auto/free",
+        "opencode/ling-3.0-flash-fin-free",
         "opencode/big-pickle"
       ]
     },
