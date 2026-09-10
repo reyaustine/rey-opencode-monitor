@@ -1,7 +1,9 @@
 const fs = require('fs');
+const path = require('path');
 
-const p1 = 'C:/Users/rey.echavez/.cache/opencode/packages/@smart-coders-hq/opencode-model-fallback/node_modules/@smart-coders-hq/opencode-model-fallback/dist/index.js';
-const p2 = 'C:/Users/rey.echavez/.cache/opencode/packages/@smart-coders-hq/opencode-model-fallback@latest/node_modules/@smart-coders-hq/opencode-model-fallback/dist/index.js';
+const homeDir = process.env.USERPROFILE || process.env.HOME || '';
+const p1 = path.join(homeDir, '.cache/opencode/packages/@smart-coders-hq/opencode-model-fallback/node_modules/@smart-coders-hq/opencode-model-fallback/dist/index.js');
+const p2 = path.join(homeDir, '.cache/opencode/packages/@smart-coders-hq/opencode-model-fallback@latest/node_modules/@smart-coders-hq/opencode-model-fallback/dist/index.js');
 
 function fixModelKeyRegex(file) {
   if (!fs.existsSync(file)) return;

@@ -3,7 +3,6 @@ const path = require('path');
 
 function findAppAsar() {
   const candidates = [
-    'C:/Users/rey.echavez/AppData/Local/Programs/@opencode-aidesktop/resources/app.asar',
     path.join(process.env.LOCALAPPDATA || '', 'Programs/@opencode-aidesktop/resources/app.asar'),
     '/Applications/OpenCode.app/Contents/Resources/app.asar',
     path.join(process.env.HOME || '', 'Applications/OpenCode.app/Contents/Resources/app.asar')

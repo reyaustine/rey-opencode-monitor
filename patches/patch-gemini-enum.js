@@ -1,9 +1,22 @@
 const fs = require('fs');
+const path = require('path');
 
-const asarPath = 'C:/Users/rey.echavez/AppData/Local/Programs/@opencode-aidesktop/resources/app.asar';
-if (!fs.existsSync(asarPath)) {
-  console.log('app.asar not found');
-  process.exit(1);
+function findAppAsar() {
+  const candidates = [
+    path.join(process.env.LOCALAPPDATA || '', 'Programs/@opencode-aidesktop/resources/app.asar'),
+    '/Applications/OpenCode.app/Contents/Resources/app.asar',
+    path.join(process.env.HOME || '', 'Applications/OpenCode.app/Contents/Resources/app.asar')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
+const asarPath = findAppAsar();
+if (!asarPath) {
+  console.log('[info] app.asar not found (headless or CLI mode). Skipping patch.');
+  process.exit(0);
 }
 
 const originalBuf = fs.readFileSync(asarPath);

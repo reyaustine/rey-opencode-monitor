@@ -23,3 +23,14 @@ scratch/
 .local/
 *.local
 *.bak*
+
+# Local SQLite databases
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# OS metadata files
+.DS_Store
+Thumbs.db
