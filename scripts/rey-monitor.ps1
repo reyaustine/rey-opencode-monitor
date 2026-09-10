@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -161,9 +161,11 @@ function Refresh-Status {
       $pyOut = & python "$pyScript" 2>$null
       if ($pyOut) {
         $dbData = $pyOut | ConvertFrom-Json
-        if ($dbData.ok) {
           $state.ThreadCount = [int]$dbData.active_threads
           $state.Workspace   = [string]$dbData.current_workspace
+          if ($dbData.override_model) {
+            $state.DefaultModel = "$($dbData.override_model) [LOCKED]"
+          }
 
           $sessions = @($dbData.sessions)
           $liveIds = @($sessions | ForEach-Object { $_.id })
@@ -551,7 +553,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: toggle tokens)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '   (Q: quit | T: tokens | O: override)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -716,6 +718,21 @@ try {
               $state.ViewMode = 'TOKENS'
             }
             try { [Console]::Clear() } catch { try { Clear-Host } catch { } }
+          }
+          if ($key.Key -eq 'O') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $pyOverride = Join-Path $scriptDir 'rey-override.py'
+            if (-not (Test-Path $pyOverride)) {
+              $pyOverride = Join-Path $HOME '.config\opencode\scripts\rey-override.py'
+            }
+            if (Test-Path $pyOverride) {
+              & python "$pyOverride"
+            }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
           }
         }
       } catch { }

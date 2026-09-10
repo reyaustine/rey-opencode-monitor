@@ -1,24 +1,29 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openrouter/openrouter/free",
+  "model": "openrouter/cohere/north-mini-code:free",
   "small_model": "opencode/big-pickle",
   "instructions": [
     "C:/Users/rey.echavez/.config/opencode/instructions/delegation.md"
   ],
-  // Free-only setup. ONLY these providers are enabled; every other provider
-  // (including any credentials stored via /connect) is ignored.
-  "enabled_providers": ["kilo", "opencode", "openrouter", "groq", "mistral", "huggingface"],
+  "enabled_providers": [
+    "kilo",
+    "opencode",
+    "openrouter",
+    "groq",
+    "mistral",
+    "huggingface"
+  ],
   "provider": {
-    // No-key free providers (smoke-tested 2026-09-10, cost 0).
     "kilo": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Kilo Code (free, no key)",
       "options": {
         "baseURL": "https://api.kilo.ai/api/gateway/v1"
       },
-      "whitelist": ["kilo-auto/free"]
+      "whitelist": [
+        "kilo-auto/free"
+      ]
     },
-    // Built-in opencode provider (Strictly free Zen models - muse-spark excluded to enforce swarm delegation).
     "opencode": {
       "whitelist": [
         "big-pickle",
@@ -28,7 +33,6 @@
         "mimo-v2.5-free"
       ]
     },
-    // Key-based providers below NEVER store raw keys here.
     "groq": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "groq",
@@ -56,9 +60,11 @@
         "baseURL": "https://api.mistral.ai/v1",
         "apiKey": "{env:MISTRAL_API_KEY}"
       },
-      "whitelist": ["codestral-latest", "mistral-small-4"]
+      "whitelist": [
+        "codestral-latest",
+        "mistral-small-4"
+      ]
     },
-    // OpenRouter free models provider.
     "openrouter": {
       "name": "OpenRouter (free models)",
       "whitelist": [
@@ -81,10 +87,9 @@
   },
   "disabled_providers": [],
   "agent": {
-    // Primary OpenCode Built-in Agent Overrides:
     "build": {
       "mode": "all",
-      "model": "openrouter/openrouter/free",
+      "model": "openrouter/cohere/north-mini-code:free",
       "description": "Primary Swarm Lead & Builder. STRICT COMPLIANCE: Decomposes tasks and delegates across the specialized pipeline (@coder, @linter, @qa, @verifier).",
       "prompt": "You are the Primary Swarm Lead & Builder. STRICT MANDATORY DELEGATION POLICY: You MUST NEVER write code, lint, and test all in a single thread with one model. You are a coordinator and load balancer. You MUST decompose tasks and delegate across the specialized subagents using @mention:\n1. @coder for code implementation\n2. Parallel verification fan-out: @linter (syntax & lint), @qa (test runner), and @verifier (logic gaps & functional integrity)\n3. @reviewer for sign-off.\nFor exploring the repository, invoke @explore."
     },
@@ -111,8 +116,6 @@
       "model": "opencode/big-pickle",
       "description": "Context summarizer and session compaction engine."
     },
-
-    // Swarm Specialist Fleet:
     "orchestrator": {
       "mode": "all",
       "model": "openrouter/openrouter/free",

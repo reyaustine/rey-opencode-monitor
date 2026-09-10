@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openrouter/openrouter/free",
+  "model": "openrouter/cohere/north-mini-code:free",
   "small_model": "opencode/big-pickle",
   "instructions": [
     "C:/Users/rey.echavez/.config/opencode/instructions/delegation.md"
@@ -89,7 +89,7 @@
   "agent": {
     "build": {
       "mode": "all",
-      "model": "openrouter/openrouter/free",
+      "model": "openrouter/cohere/north-mini-code:free",
       "description": "Primary Swarm Lead & Builder. STRICT COMPLIANCE: Decomposes tasks and delegates across the specialized pipeline (@coder, @linter, @qa, @verifier).",
       "prompt": "You are the Primary Swarm Lead & Builder. STRICT MANDATORY DELEGATION POLICY: You MUST NEVER write code, lint, and test all in a single thread with one model. You are a coordinator and load balancer. You MUST decompose tasks and delegate across the specialized subagents using @mention:\n1. @coder for code implementation\n2. Parallel verification fan-out: @linter (syntax & lint), @qa (test runner), and @verifier (logic gaps & functional integrity)\n3. @reviewer for sign-off.\nFor exploring the repository, invoke @explore."
     },

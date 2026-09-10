@@ -391,9 +391,10 @@ class ReyMonitor:
                 out = subprocess.check_output([sys.executable, py_script], stderr=subprocess.DEVNULL)
                 db_data = json.loads(out.decode('utf-8'))
 
-            if db_data.get('ok'):
                 self.state['thread_count'] = int(db_data.get('active_threads', 0))
                 self.state['workspace'] = str(db_data.get('current_workspace', '-'))
+                if db_data.get('override_model'):
+                    self.state['default_model'] = f"{db_data['override_model']} [LOCKED]"
 
                 sessions = db_data.get('sessions', [])
                 live_ids = {s['id'] for s in sessions}
@@ -539,7 +540,7 @@ class ReyMonitor:
             (f"   activity      : {self.state['activity']}", act_color),
             (f"   status        : {self.state['health']}", health_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
-            (f"   last refresh  : {self.state['last_refresh']}   (Q: quit | T: toggle model tokens)", GRAY),
+            (f"   last refresh  : {self.state['last_refresh']}   (Q: quit | T: tokens | O: override)", GRAY),
         ]
 
         if cols >= 95:
@@ -678,6 +679,20 @@ class ReyMonitor:
                         self.view_mode = 'FLEET' if self.view_mode == 'TOKENS' else 'TOKENS'
                         sys.stdout.write(CLEAR_SCREEN)
                         sys.stdout.flush()
+                    elif ch.lower() == 'o':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import rey_override
+                            rey_override.interactive_menu()
+                        except Exception:
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-override.py")])
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
 
                 if frame > 0 and (frame % REFRESH_EVERY) == 0:
                     self.refresh_status()
