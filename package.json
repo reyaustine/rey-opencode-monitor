@@ -1,0 +1,48 @@
+{
+  "name": "rey-opencode-monitor",
+  "version": "1.0.0",
+  "description": "R.E.Y. // Runtime Execution & Yield Monitor - Real-time terminal HUD & companion robot with Swarm Load Balancer for OpenCode",
+  "main": "bin/rey.js",
+  "bin": {
+    "rey": "bin/rey.js",
+    "rey-monitor": "bin/rey.js",
+    "rey-opencode-monitor": "bin/rey.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "configs",
+    "instructions",
+    "install.ps1",
+    "install.sh",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/rey.js",
+    "monitor": "node bin/rey.js",
+    "install-swarm": "node bin/rey.js --install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reyaustine/rey-opencode-monitor.git"
+  },
+  "keywords": [
+    "opencode",
+    "monitor",
+    "hud",
+    "swarm",
+    "agentic",
+    "load-balancer",
+    "companion-robot",
+    "cli",
+    "dashboard",
+    "terminal"
+  ],
+  "author": "rey.echavez",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/reyaustine/rey-opencode-monitor/issues"
+  },
+  "homepage": "https://github.com/reyaustine/rey-opencode-monitor#readme"
+}

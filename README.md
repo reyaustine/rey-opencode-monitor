@@ -6,7 +6,24 @@ A complete, self-contained, and portable distribution pack containing:
 - 🛡️ **Tiered Fallback Chains & Stability Patches**: Clamped rate-limit retry, 90s watchdog auto-failover, and Windows PowerShell execution fixes.
 - 📦 **30+ Bundled Skills**: Modular skills for plans, frontend design, QA, code review, and systematic debugging.
 
-Designed to be cloned onto any machine and installed non-destructively in 1 command.
+Designed to be run instantly via `npx` or installed onto any machine in 1 command.
+
+---
+
+## ⚡ Instant Run (Zero Install via npx)
+
+Launch the R.E.Y. live HUD directly in any terminal (Windows, macOS, or Linux):
+
+```bash
+npx rey-opencode-monitor
+```
+
+Or install globally:
+
+```bash
+npm install -g rey-opencode-monitor
+rey
+```
 
 ---
 

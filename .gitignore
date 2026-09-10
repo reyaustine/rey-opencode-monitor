@@ -34,3 +34,7 @@ scratch/
 # OS metadata files
 .DS_Store
 Thumbs.db
+
+# Release assets
+*.zip
+*.tgz
