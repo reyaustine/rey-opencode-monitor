@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -809,14 +809,6 @@ try {
     if ($script:wasWorking) { $frame += 2 } else { $frame++ }
     Start-Sleep -Milliseconds $TICK_MS
   }
-} catch {
-  Write-Host ""
-  Write-Host "  [!] R.E.Y. MONITOR RUNTIME ERROR:" -ForegroundColor Red
-  Write-Host "      $($_.Exception.Message)" -ForegroundColor Yellow
-  Write-Host "      Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor DarkGray
-  Write-Host ""
-  Write-Host "  Press Enter to exit..." -ForegroundColor DarkGray
-  try { [Console]::ReadLine() | Out-Null } catch { }
 } finally {
   try { [Console]::CursorVisible = $true } catch { }
   Write-Host ''
