@@ -22,11 +22,25 @@
         "apiKey": "{env:GEMINI_API_KEY}"
       },
       "whitelist": [
-        "gemini-3.6-flash",
-        "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
         "gemini-flash-latest"
-      ]
+      ],
+      "models": {
+        "gemini-3.8-flash": {
+          "name": "Gemini 3.8 Flash"
+        },
+        "gemini-3.7-flash": {
+          "name": "Gemini 3.7 Flash"
+        },
+        "gemini-3.6-flash": {
+          "name": "Gemini 3.6 Flash"
+        },
+        "gemini-flash-latest": {
+          "name": "Gemini Flash Latest"
+        }
+      }
     },
     "kilo": {
       "npm": "@ai-sdk/openai-compatible",
