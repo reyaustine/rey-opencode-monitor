@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode/muse-spark-1.3-free",
+  "model": "openrouter/google/gemma-4-26b-a4b-it:free",
   "small_model": "opencode/big-pickle",
   "instructions": [
     "C:/Users/rey.echavez/.config/opencode/instructions/delegation.md"
@@ -98,7 +98,7 @@
   "agent": {
     "build": {
       "mode": "all",
-      "model": "opencode/muse-spark-1.3-free",
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
       "description": "Primary Swarm Lead & Builder. STRICT COMPLIANCE: Decomposes tasks and delegates across the specialized pipeline (@coder, @linter, @qa, @verifier).",
       "prompt": "You are the Primary Swarm Lead & Builder. STRICT MANDATORY DELEGATION POLICY: You MUST NEVER write code, lint, and test all in a single thread with one model. You are a coordinator and load balancer. You MUST decompose tasks and delegate across the specialized subagents using @mention:\n1. @coder for code implementation\n2. Parallel verification fan-out: @linter (syntax & lint), @qa (test runner), and @verifier (logic gaps & functional integrity)\n3. @reviewer for sign-off.\nFor exploring the repository, invoke @explore."
     },
@@ -116,7 +116,7 @@
     },
     "general": {
       "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "gemini/gemini-3.6-flash",
       "description": "General conversational and troubleshooting agent.",
       "prompt": "You are a versatile engineering assistant. Provide direct, factual, and actionable solutions."
     },
@@ -156,7 +156,7 @@
     },
     "verifier": {
       "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "gemini/gemini-3.7-flash",
       "description": "Logic and functional gap verifier. Analyzes fresh changes for missing edge cases, race conditions, logic errors, and architectural drift.",
       "prompt": "You are the Logic & Functional Gap Verifier. After fresh code changes are written, perform a deep logical trace: verify that business logic is sound, error handling is exhaustive, edge cases are covered, no unintended side effects were introduced, and all user requirements were satisfied."
     },
@@ -183,7 +183,7 @@
     },
     "researcher": {
       "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "gemini/gemini-3.7-flash",
       "description": "Research agent for investigating libraries, APIs, best practices, and gathering context."
     },
     "docs": {
