@@ -24,6 +24,12 @@ CONFIG_JSON = os.path.join(CONFIG_DIR, "opencode.json")
 
 # Verified allowlisted models to check
 KNOWN_ALLOWLIST = [
+    "gemini/gemini-3.8-flash",
+    "gemini/gemini-3.7-flash",
+    "gemini/gemini-3.6-flash",
+    "gemini/gemini-flash-latest",
+    "mistral/codestral-latest",
+    "mistral/codestral-2508",
     "openrouter/cohere/north-mini-code:free",
     "openrouter/google/gemma-4-26b-a4b-it:free",
     "openrouter/google/gemma-4-31b-it:free",
@@ -39,13 +45,6 @@ KNOWN_ALLOWLIST = [
     "openrouter/poolside/laguna-xs-2.1:free",
     "openrouter/thinkingmachines/inkling:free",
     "kilo/kilo-auto/free",
-    "groq/openai/gpt-oss-120b",
-    "groq/openai/gpt-oss-20b",
-    "groq/openai/gpt-oss-safeguard-20b",
-    "groq/qwen/qwen3.6-27b",
-    "groq/qwen/qwen3.8-27b",
-    "mistral/codestral-latest",
-    "mistral/mistral-small-4",
     "opencode/big-pickle",
     "opencode/muse-spark-1.3-contributor-free",
     "opencode/muse-spark-1.2-contributor-free",

@@ -26,40 +26,39 @@ DESKTOP_DIR = os.path.join(os.environ.get("APPDATA", ""), "ai.opencode.desktop")
 
 # Page 1: Top Recommended Fleet Models
 PAGE1_MODELS = {
-    "1": ("openrouter/cohere/north-mini-code:free", "openrouter", "Cohere North Mini Code (Free)"),
-    "2": ("openrouter/nvidia/nemotron-3.5-lightning:free", "openrouter", "NVIDIA Nemotron 3.5 Lightning (Free)"),
-    "3": ("openrouter/google/gemma-4-31b-it:free", "openrouter", "Google Gemma-4 31B (Free)"),
-    "4": ("openrouter/openrouter/free", "openrouter", "OpenRouter Auto Free Router"),
-    "5": ("kilo/kilo-auto/free", "kilo", "Kilo Code Auto (Free, No Key)"),
-    "6": ("groq/qwen/qwen3.8-27b", "groq", "Groq Qwen 3.8 27B (Free)"),
-    "7": ("openrouter/poolside/laguna-xs-2.1:free", "openrouter", "Poolside Laguna-XS 2.1 (Free)")
+    "1": ("gemini/gemini-3.8-flash", "gemini", "Google Gemini 3.8 Flash (AI Studio Free)"),
+    "2": ("gemini/gemini-3.7-flash", "gemini", "Google Gemini 3.7 Flash (AI Studio Free)"),
+    "3": ("gemini/gemini-3.6-flash", "gemini", "Google Gemini 3.6 Flash (AI Studio Free)"),
+    "4": ("mistral/codestral-latest", "mistral", "Mistral Codestral Latest (Free Key)"),
+    "5": ("openrouter/cohere/north-mini-code:free", "openrouter", "Cohere North Mini Code (Free)"),
+    "6": ("openrouter/nvidia/nemotron-3.5-lightning:free", "openrouter", "NVIDIA Nemotron 3.5 Lightning (Free)"),
+    "7": ("kilo/kilo-auto/free", "kilo", "Kilo Code Auto (Free, No Key)")
 }
 
 # Page 2: Extended Allowlisted Fleet Models (Zero typing, select by letter)
 PAGE2_MODELS = {
-    "A": ("openrouter/google/gemma-4-26b-a4b-it:free", "openrouter", "Google Gemma-4 26B A4B (Free)"),
-    "B": ("openrouter/inclusionai/ling-3.0-flash-fin:free", "openrouter", "InclusionAI Ling 3.0 Flash Fin (Free)"),
-    "C": ("openrouter/inclusionai/ling-3.0-flash-sante:free", "openrouter", "InclusionAI Ling 3.0 Flash Sante (Free)"),
-    "D": ("openrouter/liquid/lfm-2.5-2.6b:free", "openrouter", "Liquid LFM 2.5 2.6B (Free)"),
-    "E": ("openrouter/nex-agi/nex-n2.5-pro:free", "openrouter", "Nex-AGI Nex N2.5 Pro (Free)"),
-    "F": ("openrouter/nvidia/nemotron-3-super-120b-a12b:free", "openrouter", "NVIDIA Nemotron 3 Super 120B (Free)"),
-    "G": ("openrouter/nvidia/nemotron-3-ultra-550b-a55b:free", "openrouter", "NVIDIA Nemotron 3 Ultra 550B (Free)"),
-    "H": ("openrouter/poolside/laguna-s-2.1:free", "openrouter", "Poolside Laguna-S 2.1 (Free)"),
-    "I": ("openrouter/thinkingmachines/inkling:free", "openrouter", "ThinkingMachines Inkling (Free)"),
-    "J": ("groq/openai/gpt-oss-120b", "groq", "Groq GPT OSS 120B (Free)"),
-    "K": ("groq/openai/gpt-oss-20b", "groq", "Groq GPT OSS 20B (Free)"),
-    "L": ("groq/openai/gpt-oss-safeguard-20b", "groq", "Groq GPT OSS Safeguard 20B (Free)"),
-    "M": ("groq/qwen/qwen3.6-27b", "groq", "Groq Qwen 3.6 27B (Free)"),
-    "N": ("mistral/codestral-latest", "mistral", "Mistral Codestral Latest (Free Credits)"),
-    "O": ("mistral/mistral-small-4", "mistral", "Mistral Small 4 (Free Credits)"),
-    "P": ("opencode/big-pickle", "opencode", "OpenCode Big Pickle (Local Free)"),
-    "Q": ("opencode/nemotron-3.5-lightning-free", "opencode", "OpenCode Nemotron 3.5 Lightning (Free)"),
-    "R": ("opencode/nemotron-3-ultra-free", "opencode", "OpenCode Nemotron 3 Ultra (Free)"),
-    "S": ("opencode/ling-3.0-flash-fin-free", "opencode", "OpenCode Ling 3.0 Flash Fin (Free)"),
-    "T": ("opencode/mimo-v2.5-free", "opencode", "OpenCode Mimo v2.5 (Free)"),
-    "U": ("opencode/muse-spark-1.3-contributor-free", "opencode", "OpenCode Muse Spark 1.3 Contributor (Free)"),
-    "V": ("opencode/muse-spark-1.2-contributor-free", "opencode", "OpenCode Muse Spark 1.2 Contributor (Free)"),
-    "W": ("opencode/muse-spark-1.3-free", "opencode", "OpenCode Muse Spark 1.3 Standard (Free)")
+    "A": ("gemini/gemini-flash-latest", "gemini", "Google Gemini Flash Latest (AI Studio Free)"),
+    "B": ("openrouter/google/gemma-4-31b-it:free", "openrouter", "Google Gemma-4 31B (OpenRouter Free)"),
+    "C": ("openrouter/google/gemma-4-26b-a4b-it:free", "openrouter", "Google Gemma-4 26B A4B (OpenRouter Free)"),
+    "D": ("openrouter/openrouter/free", "openrouter", "OpenRouter Auto Free Router"),
+    "E": ("openrouter/poolside/laguna-xs-2.1:free", "openrouter", "Poolside Laguna-XS 2.1 (Free)"),
+    "F": ("openrouter/poolside/laguna-s-2.1:free", "openrouter", "Poolside Laguna-S 2.1 (Free)"),
+    "G": ("openrouter/inclusionai/ling-3.0-flash-fin:free", "openrouter", "InclusionAI Ling 3.0 Flash Fin (Free)"),
+    "H": ("openrouter/inclusionai/ling-3.0-flash-sante:free", "openrouter", "InclusionAI Ling 3.0 Flash Sante (Free)"),
+    "I": ("openrouter/liquid/lfm-2.5-2.6b:free", "openrouter", "Liquid LFM 2.5 2.6B (Free)"),
+    "J": ("openrouter/nex-agi/nex-n2.5-pro:free", "openrouter", "Nex-AGI Nex N2.5 Pro (Free)"),
+    "K": ("openrouter/nvidia/nemotron-3-super-120b-a12b:free", "openrouter", "NVIDIA Nemotron 3 Super 120B (Free)"),
+    "L": ("openrouter/nvidia/nemotron-3-ultra-550b-a55b:free", "openrouter", "NVIDIA Nemotron 3 Ultra 550B (Free)"),
+    "M": ("openrouter/thinkingmachines/inkling:free", "openrouter", "ThinkingMachines Inkling (Free)"),
+    "N": ("mistral/codestral-2508", "mistral", "Mistral Codestral 2508 (Free Key)"),
+    "O": ("opencode/big-pickle", "opencode", "OpenCode Big Pickle (Local Free)"),
+    "P": ("opencode/nemotron-3.5-lightning-free", "opencode", "OpenCode Nemotron 3.5 Lightning (Free)"),
+    "Q": ("opencode/nemotron-3-ultra-free", "opencode", "OpenCode Nemotron 3 Ultra (Free)"),
+    "R": ("opencode/ling-3.0-flash-fin-free", "opencode", "OpenCode Ling 3.0 Flash Fin (Free)"),
+    "S": ("opencode/mimo-v2.5-free", "opencode", "OpenCode Mimo v2.5 (Free)"),
+    "T": ("opencode/muse-spark-1.3-contributor-free", "opencode", "OpenCode Muse Spark 1.3 Contributor (Free)"),
+    "U": ("opencode/muse-spark-1.2-contributor-free", "opencode", "OpenCode Muse Spark 1.2 Contributor (Free)"),
+    "V": ("opencode/muse-spark-1.3-free", "opencode", "OpenCode Muse Spark 1.3 Standard (Free)")
 }
 
 def parse_model_string(model_str):
