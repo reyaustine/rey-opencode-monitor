@@ -13,7 +13,6 @@
     "maxFallbackDepth": 8
   },
   "agents": {
-    // Global fallback — all agents inherit this if no specific chain defined
     "*": {
       "fallbackModels": [
         "openrouter/cohere/north-mini-code:free",
@@ -30,8 +29,6 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── SWARM LEAD & BUILDER ──────────────────────────────────────────────────
     "build": {
       "fallbackModels": [
         "openrouter/cohere/north-mini-code:free",
@@ -46,8 +43,6 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── EXPLORATION SPECIALIST ───────────────────────────────────────────────
     "explore": {
       "fallbackModels": [
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
@@ -60,28 +55,21 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── LEAD ORCHESTRATOR ────────────────────────────────────────────────────
     "orchestrator": {
       "fallbackModels": [
-        // ── OpenCode Zen (native — try first) ────────────
         "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
         "opencode/nemotron-3.5-lightning-free",
         "opencode/nemotron-3-ultra-free",
         "opencode/muse-spark-1.3-free",
-        // ── OpenRouter (external — after Zen exhausted) ──
         "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/thinkingmachines/inkling:free",
         "gemini/gemini-3.7-flash",
         "kilo/kilo-auto/free",
-        // ── Absolute floor ───────────────────────────────
         "opencode/big-pickle"
       ]
     },
-
-    // ── CODING SPECIALISTS ───────────────────────────────────────────────────
     "glm-coder": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
@@ -141,8 +129,6 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── ARCHITECTURE & ANALYSIS ──────────────────────────────────────────────
     "m3-architect": {
       "fallbackModels": [
         "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -179,8 +165,6 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── REVIEW & QUALITY CONTROL ─────────────────────────────────────────────
     "reviewer": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
@@ -249,8 +233,6 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── DOCUMENTATION & DESIGN ───────────────────────────────────────────────
     "docs": {
       "fallbackModels": [
         "opencode/muse-spark-1.3-free",
@@ -275,8 +257,6 @@
         "opencode/big-pickle"
       ]
     },
-
-    // ── CURATOR / META AGENTS ────────────────────────────────────────────────
     "curator-init": {
       "fallbackModels": [
         "opencode/nemotron-3.5-lightning-free",

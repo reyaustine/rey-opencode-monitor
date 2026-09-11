@@ -575,7 +575,7 @@ class ReyMonitor:
                 if t.get('state') == 'WORKING':
                     active_task_title = t.get('title', '')
                     break
-            health_ok = (self.state['health'] == 'ALL SYSTEMS NOMINAL')
+            health_ok = ('NOMINAL' in self.state['health'])
 
             elapsed_s = (time.time() - self.working_start_time) if (working and self.working_start_time) else 0
 

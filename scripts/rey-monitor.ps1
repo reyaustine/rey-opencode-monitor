@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -569,7 +569,7 @@ function Draw([int]$frame, [bool]$working) {
       $activeTask = [string](@($script:threadCache.Values)[0].title)
     }
 
-    $healthOk = ($state.Health -eq 'ALL SYSTEMS NOMINAL')
+    $healthOk = ($state.Health -like '*NOMINAL*')
     $sysRows = @(
       @{ Text = ("   opencode IDE  : " + $state.IdeStatus); Color = $state.IdeColor },
       @{ Text = ("   workspace     : " + $state.Workspace); Color = 'White' },
