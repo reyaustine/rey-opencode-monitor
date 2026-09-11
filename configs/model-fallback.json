@@ -20,8 +20,10 @@
         "openrouter/nvidia/nemotron-3.5-lightning:free",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/poolside/laguna-xs-2.1:free",
-        "groq/qwen/qwen3.8-27b",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "gemini/gemini-3.6-flash",
         "kilo/kilo-auto/free",
+        "kilo/nex-agi/nex-n2.5-mini:free",
         "opencode/nemotron-3.5-lightning-free",
         "opencode/ling-3.0-flash-fin-free",
         "opencode/mimo-v2.5-free",
@@ -33,9 +35,11 @@
     "build": {
       "fallbackModels": [
         "openrouter/cohere/north-mini-code:free",
+        "mistral/codestral-latest",
         "openrouter/nvidia/nemotron-3.5-lightning:free",
         "openrouter/google/gemma-4-31b-it:free",
-        "groq/qwen/qwen3.8-27b",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "gemini/gemini-3.6-flash",
         "kilo/kilo-auto/free",
         "opencode/nemotron-3.5-lightning-free",
         "opencode/mimo-v2.5-free",
@@ -49,7 +53,9 @@
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "openrouter/google/gemma-4-26b-a4b-it:free",
         "openrouter/poolside/laguna-xs-2.1:free",
+        "gemini/gemini-3.6-flash",
         "kilo/kilo-auto/free",
+        "kilo/nex-agi/nex-n2.5-mini:free",
         "opencode/ling-3.0-flash-fin-free",
         "opencode/big-pickle"
       ]
@@ -65,9 +71,11 @@
         "opencode/nemotron-3-ultra-free",
         "opencode/muse-spark-1.3-free",
         // ── OpenRouter (external — after Zen exhausted) ──
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/thinkingmachines/inkling:free",
+        "gemini/gemini-3.7-flash",
+        "kilo/kilo-auto/free",
         // ── Absolute floor ───────────────────────────────
         "opencode/big-pickle"
       ]
@@ -77,8 +85,10 @@
     "glm-coder": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
-        "openrouter/deepseek/deepseek-chat",
+        "mistral/codestral-latest",
+        "openrouter/cohere/north-mini-code:free",
         "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/poolside/laguna-s-2.1:free",
         "openrouter/poolside/laguna-xs-2.1:free",
         "opencode/nemotron-3.5-lightning-free",
         "opencode/big-pickle"
@@ -88,18 +98,19 @@
       "fallbackModels": [
         "opencode/ling-3.0-flash-fin-free",
         "opencode/nemotron-3.5-lightning-free",
-        "openrouter/minimax/minimax-m3:free",
+        "openrouter/thinkingmachines/inkling:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
         "opencode/mimo-v2.5-free",
         "opencode/big-pickle"
       ]
     },
     "test-engineer": {
       "fallbackModels": [
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
         "opencode/mimo-v2.5-free",
+        "openrouter/poolside/laguna-s-2.1:free",
         "openrouter/poolside/laguna-xs-2.1:free",
         "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/mistralai/mistral-small-3.2-24b-instruct:free",
         "opencode/big-pickle"
       ]
     },
@@ -107,7 +118,7 @@
       "fallbackModels": [
         "openrouter/nvidia/nemotron-3.5-lightning:free",
         "opencode/nemotron-3.5-lightning-free",
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
         "opencode/mimo-v2.5-free",
         "opencode/big-pickle"
       ]
@@ -125,7 +136,7 @@
       "fallbackModels": [
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
         "opencode/nemotron-3-ultra-free",
         "opencode/big-pickle"
       ]
@@ -134,20 +145,19 @@
     // ── ARCHITECTURE & ANALYSIS ──────────────────────────────────────────────
     "m3-architect": {
       "fallbackModels": [
-        "openrouter/minimax/minimax-m3:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
         "opencode/mimo-v2.5-free",
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/thinkingmachines/inkling:free",
         "opencode/nemotron-3-ultra-free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
         "opencode/big-pickle"
       ]
     },
     "sme": {
       "fallbackModels": [
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/google/gemma-4-31b-it:free",
         "opencode/mimo-v2.5-free",
         "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-        "openrouter/google/gemma-4-31b-it:free",
         "opencode/big-pickle"
       ]
     },
@@ -156,7 +166,7 @@
         "opencode/ling-3.0-flash-fin-free",
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/meta/llama-3.3-70b:free",
+        "openrouter/thinkingmachines/inkling:free",
         "opencode/big-pickle"
       ]
     },
@@ -165,7 +175,7 @@
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/qwen/qwen-2.5-72b-instruct:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
         "opencode/big-pickle"
       ]
     },
@@ -174,8 +184,9 @@
     "reviewer": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
         "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/poolside/laguna-s-2.1:free",
         "openrouter/poolside/laguna-xs-2.1:free",
         "opencode/nemotron-3-ultra-free",
         "opencode/big-pickle"
@@ -184,8 +195,8 @@
     "critic": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
-        "openrouter/minimax/minimax-m3:free",
-        "openrouter/deepseek/deepseek-chat",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+        "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "opencode/big-pickle"
       ]

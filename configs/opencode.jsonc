@@ -9,11 +9,25 @@
     "kilo",
     "opencode",
     "openrouter",
-    "groq",
+    "gemini",
     "mistral",
     "huggingface"
   ],
   "provider": {
+    "gemini": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Google AI Studio (Gemini Free)",
+      "options": {
+        "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "apiKey": "{env:GEMINI_API_KEY}"
+      },
+      "whitelist": [
+        "gemini-3.6-flash",
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+        "gemini-flash-latest"
+      ]
+    },
     "kilo": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Kilo Code (free, no key)",
@@ -21,7 +35,13 @@
         "baseURL": "https://api.kilo.ai/api/gateway/v1"
       },
       "whitelist": [
-        "kilo-auto/free"
+        "kilo-auto/free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nex-agi/nex-n2.5-pro:free",
+        "poolside/laguna-s-2.1:free",
+        "stepfun/step-3.7-flash:free",
+        "dots-studio/dots-3-note-preview:free",
+        "thinkingmachines/inkling:free"
       ]
     },
     "opencode": {
@@ -59,37 +79,23 @@
     },
     "mistral": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Mistral (free credits)",
+      "name": "Mistral Codestral",
       "options": {
         "baseURL": "https://api.mistral.ai/v1",
         "apiKey": "{env:MISTRAL_API_KEY}"
       },
       "whitelist": [
         "codestral-latest",
-        "mistral-small-4"
+        "codestral-2508"
       ]
     },
     "openrouter": {
-      "name": "OpenRouter (free models)",
-      "whitelist": [
-        "openrouter/free",
-        "nvidia/nemotron-3.5-lightning:free",
-        "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "google/gemma-4-31b-it:free",
-        "google/gemma-4-26b-a4b-it:free",
-        "inclusionai/ling-3.0-flash-fin:free",
-        "inclusionai/ling-3.0-flash-sante:free",
-        "cohere/north-mini-code:free",
-        "poolside/laguna-xs-2.1:free",
-        "poolside/laguna-s-2.1:free",
-        "nex-agi/nex-n2.5-pro:free",
-        "liquid/lfm-2.5-2.6b:free",
-        "thinkingmachines/inkling:free"
-      ]
+      "name": "OpenRouter"
     }
   },
-  "disabled_providers": [],
+  "disabled_providers": [
+    "groq"
+  ],
   "agent": {
     "build": {
       "mode": "all",
