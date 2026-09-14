@@ -281,8 +281,20 @@ function Refresh-Status {
     $state.Activity = 'IDLE'
   }
 
+  # Read OpenRouter Quota
+  $quotaPath = Join-Path $confDir 'openrouter-quota.json'
+  $script:openrouterQuota = $null
+  if (Test-Path -LiteralPath $quotaPath) {
+    try {
+      $script:openrouterQuota = Get-Content -LiteralPath $quotaPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch { }
+  }
+
   if ($ok) {
-    if ($dbData -and $dbData.model_health) {
+    $q = $script:openrouterQuota
+    if ($q -and $q.is_rate_limited) {
+      $state.Health = "DEGRADED (OR 429 - $($q.hours_left)h TO RESET | FALLBACKS ON)"
+    } elseif ($dbData -and $dbData.model_health) {
       $mh = $dbData.model_health
       if ($mh.running) {
         $state.Health = 'CHECKING FLEET HEALTH...'
@@ -579,12 +591,28 @@ function Draw([int]$frame, [bool]$working) {
     }
 
     $healthOk = ($state.Health -like '*NOMINAL*')
+
+    $q = $script:openrouterQuota
+    $provText = $state.Providers
+    $provColor = 'White'
+    if ($q -and $q.is_rate_limited) {
+      $lim = if ($q.free_limit) { $q.free_limit } else { 50 }
+      $provText = "OR 429 (0/{0} free, rst {1}h) [FALLBACKS ON]" -f $lim, $q.hours_left
+      $provColor = 'Red'
+    } elseif ($q -and $q.ok) {
+      $rem = if ($null -ne $q.free_remaining) { $q.free_remaining } else { 50 }
+      $lim = if ($q.free_limit) { $q.free_limit } else { 50 }
+      $bal = [double]($q.credits_remaining)
+      $provText = "OR {0}/{1} free OK (`${2:N2}) | {3}" -f $rem, $lim, $bal, $state.Providers
+      $provColor = 'White'
+    }
+
     $sysRows = @(
       @{ Text = ("   opencode IDE  : " + $state.IdeStatus); Color = $state.IdeColor },
       @{ Text = ("   workspace     : " + $state.Workspace); Color = 'White' },
       @{ Text = ("   default model : " + $state.DefaultModel); Color = 'White' },
       @{ Text = ("   small model   : " + $state.SmallModel); Color = 'White' },
-      @{ Text = ("   providers     : " + (Shorten $state.Providers 44)); Color = 'White' },
+      @{ Text = ("   openrouter/gate: " + (Shorten $provText 44)); Color = $provColor },
       @{ Text = ("   models visible: " + $state.ModelCount); Color = 'White' },
       @{ Text = ("   opencode      : " + $state.Version); Color = 'White' },
       @{ Text = ("   active threads: " + $state.ThreadCount); Color = 'Magenta' },

@@ -513,9 +513,23 @@ class ReyMonitor:
         else:
             self.state['activity'] = 'IDLE'
 
+        # 5. Read OpenRouter Quota
+        quota_path = os.path.join(conf_dir, 'openrouter-quota.json')
+        self.state['openrouter_quota'] = None
+        if os.path.exists(quota_path):
+            try:
+                with open(quota_path, 'r', encoding='utf-8') as qf:
+                    self.state['openrouter_quota'] = json.load(qf)
+            except Exception:
+                pass
+
         if ok:
             mh = db_data.get('model_health') if ('db_data' in locals() and db_data) else None
-            if mh:
+            q = self.state.get('openrouter_quota')
+            if q and q.get('is_rate_limited'):
+                hrs = q.get('hours_left', 0)
+                self.state['health'] = f"DEGRADED (OR 429 - {hrs}h TO RESET | FALLBACKS ON)"
+            elif mh:
                 if mh.get('running'):
                     self.state['health'] = 'CHECKING FLEET HEALTH...'
                 elif mh.get('unresponsive_count', 0) > 0:
@@ -551,6 +565,23 @@ class ReyMonitor:
         tag = '[ THINKING ]' if working else '[ STANDBY ]'
         head_color = YELLOW if working else CYAN
 
+        # Provider / Quota display
+        q = self.state.get('openrouter_quota')
+        if q and q.get('is_rate_limited'):
+            hrs = q.get('hours_left', 0)
+            lim = q.get('free_limit', 50)
+            prov_text = f"OR 429 (0/{lim} free, rst {hrs}h) [FALLBACKS ON]"
+            prov_color = RED
+        elif q and q.get('ok'):
+            rem = q.get('free_remaining', 50)
+            lim = q.get('free_limit', 50)
+            bal = q.get('credits_remaining', 0)
+            prov_text = f"OR {rem}/{lim} free OK (${bal:.2f}) | {self.state['providers']}"
+            prov_color = WHITE
+        else:
+            prov_text = self.state['providers']
+            prov_color = WHITE
+
         lines = []
         max_w = max(10, cols - 1)
 
@@ -569,7 +600,7 @@ class ReyMonitor:
             (f"   workspace     : {self.state['workspace']}", WHITE),
             (f"   default model : {self.state['default_model']}", WHITE),
             (f"   small model   : {self.state['small_model']}", WHITE),
-            (f"   providers     : {self.state['providers']}", WHITE),
+            (f"   openrouter/gate: {prov_text}", prov_color),
             (f"   models visible: {self.state['model_count']}", WHITE),
             (f"   opencode      : {self.state['version']}", WHITE),
             (f"   active threads: {self.state['thread_count']}", MAGENTA),
@@ -611,7 +642,7 @@ class ReyMonitor:
             for idx, (txt, col) in enumerate(sys_items):
                 left_part = (txt[:65]).ljust(65)
                 c_left = f"{col}{left_part}{RESET}"
-                bot_line = robot_lines[idx]
+                bot_line = robot_lines[idx] if idx < len(robot_lines) else (" " * 28)
                 trailing = ' ' * max(0, max_w - 95)
                 lines.append(f"{c_left}  {bot_line}{trailing}")
         else:

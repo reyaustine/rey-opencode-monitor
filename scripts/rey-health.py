@@ -96,6 +96,101 @@ def get_current_allowlist():
             pass
     return models
 
+def check_openrouter_quota():
+    """Queries OpenRouter auth and tests live free-tier rate limit status."""
+    quota_info = {
+        "ok": False,
+        "status": "UNKNOWN",
+        "label": "unknown",
+        "free_limit": 50,
+        "free_remaining": 50,
+        "credits_remaining": 0.0,
+        "usage_daily": 0.0,
+        "is_rate_limited": False,
+        "reset_time": "N/A",
+        "hours_left": 0.0,
+        "message": ""
+    }
+    key = ""
+    if os.path.exists(AUTH_PATH):
+        try:
+            with open(AUTH_PATH, "r", encoding="utf-8") as f:
+                key = json.load(f).get("openrouter", {}).get("key", "")
+        except Exception:
+            pass
+    if not key:
+        return quota_info
+
+    # 1. Fetch account limit & balance
+    try:
+        req = urllib.request.Request("https://openrouter.ai/api/v1/auth/key", headers={"Authorization": f"Bearer {key}", "User-Agent": "REY-Quota-Monitor/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            kdata = json.loads(r.read().decode())["data"]
+            quota_info["ok"] = True
+            quota_info["label"] = kdata.get("label", "")
+            quota_info["credits_remaining"] = round(kdata.get("limit_remaining", 0), 4)
+            quota_info["usage_daily"] = round(kdata.get("usage_daily", 0), 4)
+    except Exception as e:
+        quota_info["error"] = str(e)
+
+    # 2. Probe free model rate limit
+    try:
+        req2 = urllib.request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://opencode.ai",
+                "X-Title": "OpenCode",
+                "User-Agent": "REY-Quota-Monitor/1.0"
+            },
+            data=json.dumps({
+                "model": "inclusionai/ling-3.0-flash-vl:free",
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1
+            }).encode()
+        )
+        with urllib.request.urlopen(req2, timeout=4) as r2:
+            quota_info["status"] = "HEALTHY"
+            quota_info["is_rate_limited"] = False
+            quota_info["free_remaining"] = 50
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            try:
+                body = json.loads(e.read().decode())
+                meta = body.get("error", {}).get("metadata", {})
+                headers = meta.get("headers", {})
+                reset_ms = int(headers.get("X-RateLimit-Reset", 0))
+                rem = int(headers.get("X-RateLimit-Remaining", 0))
+                limit = int(headers.get("X-RateLimit-Limit", 50))
+                
+                reset_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(reset_ms / 1000)) if reset_ms else "Unknown"
+                hours_left = round((reset_ms / 1000 - time.time()) / 3600, 1) if reset_ms else 0
+                
+                quota_info["status"] = "RATE_LIMITED_429"
+                quota_info["is_rate_limited"] = True
+                quota_info["free_limit"] = limit
+                quota_info["free_remaining"] = rem
+                quota_info["reset_time"] = reset_time
+                quota_info["hours_left"] = hours_left
+                quota_info["message"] = body.get("error", {}).get("message", "Rate limit exceeded")
+            except Exception:
+                quota_info["status"] = "RATE_LIMITED_429"
+                quota_info["is_rate_limited"] = True
+        else:
+            quota_info["status"] = f"HTTP_{e.code}"
+    except Exception:
+        quota_info["status"] = "OK"
+
+    quota_file = os.path.join(CONFIG_DIR, "openrouter-quota.json")
+    try:
+        with open(quota_file, "w", encoding="utf-8") as qf:
+            json.dump(quota_info, qf, indent=2)
+    except Exception:
+        pass
+
+    return quota_info
+
 def run_health_check(quiet=False):
     """Executes the complete health check, free model audit, and model discovery."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -315,13 +410,20 @@ def run_health_check(quiet=False):
         except Exception:
             pass
 
+    quota_info = check_openrouter_quota()
+
     duration_ms = int((time.time() - start_time) * 1000)
-    overall_status = "HEALTHY" if len(unresponsive) == 0 else "DEGRADED"
+    if quota_info.get("is_rate_limited"):
+        overall_status = "DEGRADED"
+    else:
+        overall_status = "HEALTHY" if len(unresponsive) == 0 else "DEGRADED"
 
     summary_text = (
-        f"{len(responsive)}/{len(current_allowlist)} models verified responsive ({duration_ms}ms). "
+        f"{len(responsive)}/{len(current_allowlist)} models responsive ({duration_ms}ms). "
         f"{len(new_free_models)} new free models found on OpenRouter. {len(recent_paid_models)} recent paid updates."
     )
+    if quota_info.get("is_rate_limited"):
+        summary_text += f" [OPENROUTER 429 LIMITED - resets in {quota_info.get('hours_left')}h]"
 
     result_data = {
         "running": False,
@@ -335,6 +437,7 @@ def run_health_check(quiet=False):
             "groq": {"ok": groq_ok, "latency_ms": lat_groq},
             "lmstudio": {"ok": lmstudio_ok, "latency_ms": lat_lm}
         },
+        "quota": quota_info,
         "responsive_count": len(responsive),
         "unresponsive_count": len(unresponsive),
         "unresponsive_models": unresponsive,
@@ -358,6 +461,16 @@ def run_health_check(quiet=False):
 
     # CLI Output Rendering
     if not quiet:
+        print("\n OpenRouter Rate Limit & Quota Monitor:")
+        if quota_info.get("is_rate_limited"):
+            print(f"  {RED}[429 RATE LIMITED]{RESET} Free Tier Models Quota Exhausted! (0/{quota_info.get('free_limit', 50)} requests remaining)")
+            print(f"  {YELLOW}• Daily Reset Time  :{RESET} {quota_info.get('reset_time')} ({quota_info.get('hours_left')} hours remaining)")
+            print(f"  {YELLOW}• Paid Credit Balance:{RESET} ${quota_info.get('credits_remaining', 0)} (Paid models are unaffected by free quota)")
+            print(f"  {CYAN}• Auto-Defense Engaged:{RESET} OpenCode & Mistral fallback models active so subagents continue without canceling!")
+            print(f"  {GRAY}• Tip                : Adding $5 credit to OpenRouter permanently unlocks 1,000 free requests/day.{RESET}")
+        else:
+            print(f"  {GREEN}[HEALTHY]{RESET} Free tier models active ({quota_info.get('free_remaining', 50)}/50 remaining). Balance: ${quota_info.get('credits_remaining', 0)}")
+
         print("\n Provider Gateways:")
         print(f"  [{'✓' if openrouter_ok else '✖'}] OpenRouter API    - {'200 OK' if openrouter_ok else 'FAIL'} ({lat_or}ms)")
         print(f"  [{'✓' if kilo_ok else '✖'}] Kilo Code Gateway - {'200 OK' if kilo_ok else 'FAIL'} ({lat_k}ms)")

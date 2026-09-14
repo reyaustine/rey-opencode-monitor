@@ -15,286 +15,412 @@
   "agents": {
     "*": {
       "fallbackModels": [
-        "openrouter/cohere/north-mini-code:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "gemini/gemini-3.6-flash",
+        "kilo/nex-agi/nex-n2.5-mini:free",
         "openrouter/nvidia/nemotron-3.5-lightning:free",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/poolside/laguna-xs-2.1:free",
-        "openrouter/poolside/laguna-s-2.1:free",
-        "gemini/gemini-3.6-flash",
-        "kilo/kilo-auto/free",
-        "kilo/nex-agi/nex-n2.5-mini:free",
-        "opencode/nemotron-3.5-lightning-free",
-        "opencode/ling-3.0-flash-fin-free",
-        "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "openrouter/poolside/laguna-s-2.1:free"
       ]
     },
     "build": {
       "fallbackModels": [
-        "openrouter/cohere/north-mini-code:free",
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
         "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "gemini/gemini-3.6-flash",
         "openrouter/nvidia/nemotron-3.5-lightning:free",
         "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/poolside/laguna-s-2.1:free",
-        "gemini/gemini-3.6-flash",
-        "kilo/kilo-auto/free",
-        "opencode/nemotron-3.5-lightning-free",
-        "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "openrouter/poolside/laguna-s-2.1:free"
       ]
     },
     "explore": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "gemini/gemini-3.6-flash",
+        "kilo/nex-agi/nex-n2.5-mini:free",
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "openrouter/google/gemma-4-26b-a4b-it:free",
-        "openrouter/poolside/laguna-xs-2.1:free",
-        "gemini/gemini-3.6-flash",
-        "kilo/kilo-auto/free",
-        "kilo/nex-agi/nex-n2.5-mini:free",
-        "opencode/ling-3.0-flash-fin-free",
-        "opencode/big-pickle"
+        "openrouter/poolside/laguna-xs-2.1:free"
       ]
     },
     "orchestrator": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
         "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "opencode/nemotron-3-ultra-free",
         "opencode/muse-spark-1.3-free",
+        "gemini/gemini-3.7-flash",
         "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
         "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/thinkingmachines/inkling:free",
-        "gemini/gemini-3.7-flash",
-        "kilo/kilo-auto/free",
-        "opencode/big-pickle"
+        "openrouter/thinkingmachines/inkling:free"
       ]
     },
     "glm-coder": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
         "mistral/codestral-latest",
-        "openrouter/cohere/north-mini-code:free",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
         "openrouter/poolside/laguna-s-2.1:free",
-        "openrouter/poolside/laguna-xs-2.1:free",
-        "opencode/nemotron-3.5-lightning-free",
-        "opencode/big-pickle"
+        "openrouter/poolside/laguna-xs-2.1:free"
       ]
     },
     "inkling-explorer": {
       "fallbackModels": [
-        "opencode/ling-3.0-flash-fin-free",
-        "opencode/nemotron-3.5-lightning-free",
-        "openrouter/thinkingmachines/inkling:free",
-        "openrouter/google/gemma-4-26b-a4b-it:free",
         "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/thinkingmachines/inkling:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free"
       ]
     },
     "test-engineer": {
       "fallbackModels": [
-        "openrouter/nvidia/nemotron-3.5-lightning:free",
         "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
         "openrouter/poolside/laguna-s-2.1:free",
         "openrouter/poolside/laguna-xs-2.1:free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "qa": {
       "fallbackModels": [
-        "openrouter/nvidia/nemotron-3.5-lightning:free",
-        "opencode/nemotron-3.5-lightning-free",
-        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
         "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free"
       ]
     },
     "linter": {
       "fallbackModels": [
-        "openrouter/poolside/laguna-xs-2.1:free",
-        "opencode/ling-3.0-flash-fin-free",
-        "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free"
       ]
     },
     "verifier": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "opencode/nemotron-3-ultra-free",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-        "opencode/nemotron-3-ultra-free",
-        "opencode/big-pickle"
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
       ]
     },
     "m3-architect": {
       "fallbackModels": [
-        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
         "opencode/mimo-v2.5-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/thinkingmachines/inkling:free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "opencode/nemotron-3-ultra-free",
-        "opencode/big-pickle"
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/thinkingmachines/inkling:free"
       ]
     },
     "sme": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
         "opencode/mimo-v2.5-free",
-        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-        "opencode/big-pickle"
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
       ]
     },
     "researcher": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
         "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/thinkingmachines/inkling:free",
-        "opencode/big-pickle"
+        "openrouter/thinkingmachines/inkling:free"
       ]
     },
     "spec-writer": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/inclusionai/ling-3.0-flash-fin:free",
-        "opencode/ling-3.0-flash-fin-free",
-        "openrouter/nvidia/nemotron-3.5-lightning:free",
-        "opencode/big-pickle"
+        "openrouter/nvidia/nemotron-3.5-lightning:free"
       ]
     },
     "reviewer": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "opencode/nemotron-3-ultra-free",
         "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
         "openrouter/google/gemma-4-31b-it:free",
         "openrouter/poolside/laguna-s-2.1:free",
-        "openrouter/poolside/laguna-xs-2.1:free",
-        "opencode/nemotron-3-ultra-free",
-        "opencode/big-pickle"
+        "openrouter/poolside/laguna-xs-2.1:free"
       ]
     },
     "critic": {
       "fallbackModels": [
         "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "openrouter/liquid/lfm-2.5-2.6b:free",
         "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-        "openrouter/inclusionai/ling-3.0-flash-fin:free",
-        "opencode/big-pickle"
+        "openrouter/inclusionai/ling-3.0-flash-fin:free"
       ]
     },
     "critic-sounding-board": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "opencode/muse-spark-1.3-free",
-        "opencode/big-pickle"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "critic-drift-verifier": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
-        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free"
       ]
     },
     "critic-hallucination-verifier": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
         "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "critic-oversight": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
         "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "critic-architecture-supervisor": {
       "fallbackModels": [
-        "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
         "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "critic-finding-validator": {
       "fallbackModels": [
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/ling-3.0-flash-fin-free",
         "opencode/mimo-v2.5-free",
-        "opencode/big-pickle"
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "docs": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "opencode/muse-spark-1.3-free",
         "opencode/muse-spark-1.2-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "docs-design": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "opencode/muse-spark-1.3-free",
         "opencode/muse-spark-1.2-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "designer": {
       "fallbackModels": [
+        "opencode/mimo-v2.5-free",
+        "opencode/ling-3.0-flash-fin-free",
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
         "opencode/muse-spark-1.3-free",
         "opencode/muse-spark-1.2-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "curator-init": {
       "fallbackModels": [
-        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "curator-phase": {
       "fallbackModels": [
-        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "curator-postmortem": {
       "fallbackModels": [
-        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "curator-consolidation": {
       "fallbackModels": [
-        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     },
     "skill-improver": {
       "fallbackModels": [
-        "opencode/nemotron-3.5-lightning-free",
+        "opencode/mimo-v2.5-free",
         "opencode/ling-3.0-flash-fin-free",
-        "openrouter/google/gemma-4-31b-it:free",
-        "opencode/big-pickle"
+        "mistral/codestral-latest",
+        "opencode/nemotron-3.5-lightning-free",
+        "kilo/kilo-auto/free",
+        "openrouter/free",
+        "opencode/big-pickle",
+        "openrouter/google/gemma-4-31b-it:free"
       ]
     }
   }
