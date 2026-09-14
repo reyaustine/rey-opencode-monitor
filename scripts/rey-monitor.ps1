@@ -130,6 +130,15 @@ function Refresh-Status {
       if ($mCount -gt 0) {
         $state.ModelCount = "$mCount allowlisted"
       }
+      $dealsPath = Join-Path $confDir 'openrouter-deals.json'
+      if (Test-Path -LiteralPath $dealsPath) {
+        try {
+          $dData = Get-Content -LiteralPath $dealsPath -Raw | ConvertFrom-Json
+          if ($dData.total_deals -gt 0) {
+            $state.ModelCount += " | $($dData.total_deals) deals [D]"
+          }
+        } catch { }
+      }
     }
   } catch {
     $ok = $false
@@ -582,7 +591,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | O: override | H: health)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -747,6 +756,36 @@ try {
               $state.ViewMode = 'TOKENS'
             }
             try { [Console]::Clear() } catch { try { Clear-Host } catch { } }
+          }
+          if ($key.Key -eq 'L') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $pyLogs = Join-Path $scriptDir 'rey-logs.py'
+            if (-not (Test-Path $pyLogs)) {
+              $pyLogs = Join-Path $HOME '.config\opencode\scripts\rey-logs.py'
+            }
+            if (Test-Path $pyLogs) {
+              & python "$pyLogs"
+            }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'D') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $pyDeals = Join-Path $scriptDir 'rey-deals.py'
+            if (-not (Test-Path $pyDeals)) {
+              $pyDeals = Join-Path $HOME '.config\opencode\scripts\rey-deals.py'
+            }
+            if (Test-Path $pyDeals) {
+              & python "$pyDeals"
+            }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
           }
           if ($key.Key -eq 'O') {
             try { [Console]::CursorVisible = $true } catch { }

@@ -355,6 +355,16 @@ class ReyMonitor:
                                 m_count += len(p_val.get('models', {}))
                     if m_count > 0:
                         self.state['model_count'] = f"{m_count} allowlisted"
+                    
+                    deals_file = os.path.join(conf_dir, 'openrouter-deals.json')
+                    if os.path.exists(deals_file):
+                        try:
+                            with open(deals_file, 'r', encoding='utf-8') as df:
+                                d_cnt = json.load(df).get('total_deals', 0)
+                                if d_cnt > 0:
+                                    self.state['model_count'] += f" | {d_cnt} deals [D]"
+                        except Exception:
+                            pass
         except Exception as e:
             ok = False
             self.add_log('config parse err: ' + shorten(str(e), 35))
@@ -566,7 +576,7 @@ class ReyMonitor:
             (f"   activity      : {self.state['activity']}", act_color),
             (f"   status        : {self.state['health']}", health_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
-            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | O: override | H: health)", GRAY),
+            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health)", GRAY),
         ]
 
         if cols >= 95:
@@ -705,6 +715,26 @@ class ReyMonitor:
                         self.view_mode = 'FLEET' if self.view_mode == 'TOKENS' else 'TOKENS'
                         sys.stdout.write(CLEAR_SCREEN)
                         sys.stdout.flush()
+                    elif ch.lower() == 'l':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        import subprocess
+                        subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-logs.py")])
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
+                    elif ch.lower() == 'd':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        import subprocess
+                        subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-deals.py")])
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
                     elif ch.lower() == 'o':
                         key_reader.restore()
                         sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)

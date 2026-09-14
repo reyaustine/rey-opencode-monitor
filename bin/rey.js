@@ -27,6 +27,16 @@ if (args.includes('--install') || args.includes('install')) {
   const pythonCmd = isWin ? 'python' : 'python3';
   const child = spawn(pythonCmd, [healthScript, ...args.filter(a => a !== 'health' && a !== '--health')], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
+} else if (args.includes('--logs') || args.includes('logs')) {
+  const logsScript = path.join(rootDir, 'scripts', 'rey-logs.py');
+  const pythonCmd = isWin ? 'python' : 'python3';
+  const child = spawn(pythonCmd, [logsScript, ...args.filter(a => a !== 'logs' && a !== '--logs')], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+} else if (args.includes('--deals') || args.includes('deals')) {
+  const dealsScript = path.join(rootDir, 'scripts', 'rey-deals.py');
+  const pythonCmd = isWin ? 'python' : 'python3';
+  const child = spawn(pythonCmd, [dealsScript, ...args.filter(a => a !== 'deals' && a !== '--deals')], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
 } else if (args.includes('--override') || args.includes('override')) {
   const overrideScript = path.join(rootDir, 'scripts', 'rey-override.py');
   const pythonCmd = isWin ? 'python' : 'python3';

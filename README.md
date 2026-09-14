@@ -33,7 +33,12 @@ rey
 rey-opencode-monitor/
 ├── scripts/
 │   ├── rey-monitor.ps1           # Real-time CLI HUD monitor with resize resilience
+│   ├── rey-monitor.py            # Cross-platform Python HUD monitor
 │   ├── rey-state.py              # Sub-50ms SQLite reader across all workspaces
+│   ├── rey-health.py             # Fleet health watchdog & free/paid model discovery audit
+│   ├── rey-logs.py               # Interactive error & fallback log diagnostics viewer (L key)
+│   ├── rey-deals.py              # OpenRouter live promotional discounts & deals engine (D key)
+│   ├── rey-override.py           # Interactive model override & rotating pool controller
 │   ├── rey-launch.ps1            # Safe single-instance background launcher
 │   ├── rey.cmd                   # Global command launcher (type 'rey' anywhere)
 │   ├── jarvis-monitor.ps1        # Backwards-compatible alias

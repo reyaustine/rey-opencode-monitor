@@ -2,8 +2,8 @@
 """
 R.E.Y. // Fleet Health Watchdog & Free Model Discovery Engine
 Pings provider APIs every 30 mins (and on-demand via H key),
-tests allowlisted model responsiveness, discovers newly released free models,
-and reports status live to the R.E.Y. Monitor sub-agents table and HUD.
+tests responsiveness of ALL Free models, discovers newly released free models,
+tracks newly updated live paid models on OpenRouter, and reports deals & status live.
 """
 
 import os
@@ -12,38 +12,39 @@ import json
 import time
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+# ANSI color codes
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+CYAN = "\033[36m"
+YELLOW = "\033[33m"
+GREEN = "\033[32m"
+RED = "\033[31m"
+MAGENTA = "\033[35m"
+WHITE = "\033[37m"
+GRAY = "\033[90m"
+
 HOME = os.path.expanduser("~")
 CONFIG_DIR = os.path.join(HOME, ".config", "opencode")
 HEALTH_FILE = os.path.join(CONFIG_DIR, "model-health.json")
+DEALS_FILE = os.path.join(CONFIG_DIR, "openrouter-deals.json")
 AUTH_PATH = os.path.join(HOME, ".local", "share", "opencode", "auth.json")
 CONFIG_JSON = os.path.join(CONFIG_DIR, "opencode.json")
+CONFIG_JSONC = os.path.join(CONFIG_DIR, "opencode.jsonc")
 
-# Verified allowlisted models to check
-KNOWN_ALLOWLIST = [
+# Base allowlisted models to check
+BASE_ALLOWLIST = [
     "gemini/gemini-3.8-flash",
     "gemini/gemini-3.7-flash",
     "gemini/gemini-3.6-flash",
     "gemini/gemini-flash-latest",
     "mistral/codestral-latest",
     "mistral/codestral-2508",
-    "openrouter/cohere/north-mini-code:free",
-    "openrouter/google/gemma-4-26b-a4b-it:free",
-    "openrouter/google/gemma-4-31b-it:free",
-    "openrouter/inclusionai/ling-3.0-flash-fin:free",
-    "openrouter/inclusionai/ling-3.0-flash-sante:free",
-    "openrouter/liquid/lfm-2.5-2.6b:free",
-    "openrouter/nex-agi/nex-n2.5-pro:free",
-    "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-    "openrouter/nvidia/nemotron-3.5-lightning:free",
-    "openrouter/openrouter/free",
-    "openrouter/poolside/laguna-s-2.1:free",
-    "openrouter/poolside/laguna-xs-2.1:free",
-    "openrouter/thinkingmachines/inkling:free",
     "kilo/kilo-auto/free",
     "opencode/big-pickle",
     "opencode/muse-spark-1.3-contributor-free",
@@ -52,7 +53,9 @@ KNOWN_ALLOWLIST = [
     "opencode/nemotron-3.5-lightning-free",
     "opencode/nemotron-3-ultra-free",
     "opencode/ling-3.0-flash-fin-free",
-    "opencode/mimo-v2.5-free"
+    "opencode/mimo-v2.5-free",
+    "deepseek/deepseek-r1-distill-qwen-1.5b",
+    "lmstudio/deepseek-r1-distill-qwen-1.5b"
 ]
 
 def ping_endpoint(url, headers=None, timeout=6):
@@ -73,8 +76,28 @@ def ping_endpoint(url, headers=None, timeout=6):
         latency_ms = int((time.time() - t0) * 1000)
         return False, str(e), latency_ms, ""
 
+def get_current_allowlist():
+    """Reads models configured across opencode.jsonc."""
+    models = list(BASE_ALLOWLIST)
+    if os.path.exists(CONFIG_JSONC):
+        try:
+            with open(CONFIG_JSONC, "r", encoding="utf-8") as f:
+                lines = [l for l in f if not l.strip().startswith("//")]
+                cdata = json.loads("\n".join(lines))
+                # Add provider whitelists
+                if cdata.get("provider"):
+                    for p_name, p_val in cdata["provider"].items():
+                        if isinstance(p_val, dict):
+                            for m in p_val.get("whitelist", []):
+                                full = f"{p_name}/{m}" if not m.startswith(p_name) else m
+                                if full not in models:
+                                    models.append(full)
+        except Exception:
+            pass
+    return models
+
 def run_health_check(quiet=False):
-    """Executes the complete health check and model discovery."""
+    """Executes the complete health check, free model audit, and model discovery."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
     start_time = time.time()
 
@@ -83,7 +106,7 @@ def run_health_check(quiet=False):
         "running": True,
         "timestamp": int(start_time * 1000),
         "status": "RUNNING",
-        "task": "[HEALTH] Pinging free fleet models & discovering updates..."
+        "task": "[HEALTH] Auditing ALL Free & Paid models on OpenRouter..."
     }
     try:
         with open(HEALTH_FILE, "w", encoding="utf-8") as f:
@@ -92,24 +115,28 @@ def run_health_check(quiet=False):
         pass
 
     if not quiet:
-        print("\n" + "=" * 75)
-        print(" 🚀 R.E.Y. FLEET HEALTH WATCHDOG & FREE MODEL DISCOVERY")
-        print("=" * 75)
+        print(f"\n{CYAN}{'=' * 85}{RESET}")
+        print(f"  {BOLD}🚀 R.E.Y. // FLEET HEALTH WATCHDOG & MODEL DISCOVERY AUDIT{RESET}")
+        print(f"{CYAN}{'=' * 85}{RESET}")
 
     # 1. Fetch live models from OpenRouter
-    openrouter_models = []
+    all_openrouter_models = []
     openrouter_free_models = []
-    openrouter_ok, code, lat_or, body_or = ping_endpoint("https://openrouter.ai/api/v1/models")
+    openrouter_paid_models = []
+    openrouter_ok, code, lat_or, body_or = ping_endpoint("https://openrouter.ai/api/v1/models", timeout=10)
+    
     if openrouter_ok and body_or:
         try:
             or_data = json.loads(body_or)
             for m in or_data.get("data", []):
+                all_openrouter_models.append(m)
                 mid = m.get("id", "")
-                openrouter_models.append(mid)
                 pricing = m.get("pricing", {})
                 is_free = mid.endswith(":free") or (pricing.get("prompt") == "0" and pricing.get("completion") == "0")
                 if is_free:
-                    openrouter_free_models.append(mid)
+                    openrouter_free_models.append(m)
+                else:
+                    openrouter_paid_models.append(m)
         except Exception:
             pass
 
@@ -140,46 +167,160 @@ def run_health_check(quiet=False):
             except Exception:
                 pass
 
-    # 4. Check Allowlisted Models Responsiveness
+    # 4. Check LM Studio LAN Gateway
+    lmstudio_ok, lm_code, lat_lm, _ = ping_endpoint(
+        "http://192.168.254.140:1234/v1/models",
+        headers={"Authorization": "Bearer sk-lm-Ab9ev0CX:Zft2eboj3Ml3GSQqjb46"},
+        timeout=3
+    )
+
+    # 5. Deep-audit ALL Free Models on OpenRouter concurrently
+    if not quiet:
+        print(f"  Auditing {len(openrouter_free_models)} live free models on OpenRouter...")
+
+    free_model_health = {}
+    
+    def check_free_model(m):
+        mid = m.get("id", "")
+        res = {
+            "id": mid,
+            "name": m.get("name", mid),
+            "context_length": m.get("context_length", 0),
+            "status": "OK",
+            "uptime_1d": 100.0,
+            "latency_ms": 0,
+            "warning": ""
+        }
+        try:
+            # Check model endpoints status
+            ep_url = f"https://openrouter.ai/api/v1/models/{mid}/endpoints"
+            r = urllib.request.Request(ep_url, headers={"User-Agent": "REY-Fleet-Monitor/1.0"})
+            t0 = time.time()
+            with urllib.request.urlopen(r, timeout=4) as ep_resp:
+                lat = int((time.time() - t0) * 1000)
+                res["latency_ms"] = lat
+                ep_data = json.loads(ep_resp.read().decode("utf-8", errors="replace"))
+                endpoints = ep_data.get("data", {}).get("endpoints", [])
+                if endpoints:
+                    best_ep = endpoints[0]
+                    res["uptime_1d"] = round(best_ep.get("uptime_last_1d", 100.0), 1)
+                    if best_ep.get("status") != 0:
+                        res["status"] = "OFFLINE"
+                        res["warning"] = "Provider endpoint down"
+                    elif res["uptime_1d"] < 95.0:
+                        res["status"] = "DEGRADED"
+                        res["warning"] = f"Low uptime ({res['uptime_1d']}%)"
+                    elif lat > 2500:
+                        res["status"] = "DEGRADED"
+                        res["warning"] = f"Slow response ({lat}ms)"
+                else:
+                    res["status"] = "DEGRADED"
+                    res["warning"] = "No healthy endpoints"
+        except urllib.error.HTTPError as e:
+            res["status"] = "DEGRADED"
+            res["warning"] = f"HTTP {e.code}"
+        except Exception as e:
+            res["status"] = "TIMEOUT"
+            res["warning"] = "Timed out"
+        return res
+
+    with ThreadPoolExecutor(max_workers=15) as ex:
+        free_results = list(ex.map(check_free_model, openrouter_free_models))
+
+    for fr in free_results:
+        free_model_health[fr["id"]] = fr
+
+    # 6. Allowlisted Models Responsiveness
+    current_allowlist = get_current_allowlist()
     responsive = []
     unresponsive = []
+    degraded = []
 
-    for full_id in KNOWN_ALLOWLIST:
+    for full_id in current_allowlist:
         if full_id.startswith("openrouter/"):
             raw_id = full_id.replace("openrouter/", "", 1)
-            if raw_id == "free" or raw_id in openrouter_models or (not openrouter_models and openrouter_ok):
+            if raw_id == "free":
+                responsive.append(full_id)
+            elif raw_id in free_model_health:
+                fh = free_model_health[raw_id]
+                if fh["status"] == "OK":
+                    responsive.append(full_id)
+                else:
+                    degraded.append(f"{full_id} ({fh['warning']})")
+                    if fh["status"] in ["OFFLINE", "TIMEOUT"]:
+                        unresponsive.append(full_id)
+                    else:
+                        responsive.append(full_id)
+            elif any(m.get("id") == raw_id for m in all_openrouter_models):
                 responsive.append(full_id)
             else:
                 unresponsive.append(full_id)
         elif full_id.startswith("groq/"):
-            raw_id = full_id.replace("groq/", "", 1)
-            if raw_id in groq_models or (not groq_models and groq_ok):
+            if groq_ok:
                 responsive.append(full_id)
             else:
-                responsive.append(full_id) # Groq key is active
+                unresponsive.append(full_id)
         elif full_id.startswith("kilo/"):
             if kilo_ok:
+                responsive.append(full_id)
+            else:
+                unresponsive.append(full_id)
+        elif full_id.startswith("deepseek/") or full_id.startswith("lmstudio/"):
+            if lmstudio_ok:
                 responsive.append(full_id)
             else:
                 unresponsive.append(full_id)
         else:
             responsive.append(full_id)
 
-    # 5. Discover New Free Models (Models on OpenRouter not currently in our allowlist)
-    existing_raw_ids = {m.replace("openrouter/", "", 1) for m in KNOWN_ALLOWLIST if m.startswith("openrouter/")}
-    new_discovered = []
-    for f_id in openrouter_free_models:
-        if f_id not in existing_raw_ids and not f_id.startswith("google/lyria"): # Skip audio-only preview
-            new_discovered.append(f_id)
+    # 7. Discover New Free Models on OpenRouter
+    existing_raw_ids = {m.replace("openrouter/", "", 1) for m in current_allowlist if m.startswith("openrouter/")}
+    new_free_models = []
+    for fm in openrouter_free_models:
+        f_id = fm.get("id", "")
+        if f_id not in existing_raw_ids and not f_id.startswith("google/lyria"):
+            new_free_models.append({
+                "id": f"openrouter/{f_id}",
+                "raw_id": f_id,
+                "name": fm.get("name", f_id),
+                "context_length": fm.get("context_length", 0),
+                "status": free_model_health.get(f_id, {}).get("status", "OK"),
+                "uptime": free_model_health.get(f_id, {}).get("uptime_1d", 100.0)
+            })
+
+    # 8. Track Live Paid Models Updates (Past 7-14 days)
+    now_ts = time.time()
+    recent_paid_models = []
+    for pm in openrouter_paid_models:
+        created = pm.get("created", 0)
+        days_old = int((now_ts - created) / 86400) if created else 999
+        if days_old <= 14:
+            recent_paid_models.append({
+                "id": pm.get("id", ""),
+                "name": pm.get("name", ""),
+                "days_ago": days_old,
+                "context_length": pm.get("context_length", 0),
+                "prompt": pm.get("pricing", {}).get("prompt", "0"),
+                "completion": pm.get("pricing", {}).get("completion", "0")
+            })
+    recent_paid_models.sort(key=lambda x: x["days_ago"])
+
+    # 9. Read active discounted deals snapshot
+    active_deals_count = 0
+    if os.path.exists(DEALS_FILE):
+        try:
+            with open(DEALS_FILE, "r", encoding="utf-8") as df:
+                ddata = json.load(df)
+                active_deals_count = ddata.get("total_deals", 0)
+        except Exception:
+            pass
 
     duration_ms = int((time.time() - start_time) * 1000)
-
-    # Determine overall status
     overall_status = "HEALTHY" if len(unresponsive) == 0 else "DEGRADED"
 
     summary_text = (
-        f"{len(responsive)}/{len(KNOWN_ALLOWLIST)} models verified responsive ({duration_ms}ms). "
-        f"{len(new_discovered)} new free models found on OpenRouter."
+        f"{len(responsive)}/{len(current_allowlist)} models verified responsive ({duration_ms}ms). "
+        f"{len(new_free_models)} new free models found on OpenRouter. {len(recent_paid_models)} recent paid updates."
     )
 
     result_data = {
@@ -191,47 +332,80 @@ def run_health_check(quiet=False):
         "providers": {
             "openrouter": {"ok": openrouter_ok, "latency_ms": lat_or},
             "kilo": {"ok": kilo_ok, "latency_ms": lat_k},
-            "groq": {"ok": groq_ok, "latency_ms": lat_groq}
+            "groq": {"ok": groq_ok, "latency_ms": lat_groq},
+            "lmstudio": {"ok": lmstudio_ok, "latency_ms": lat_lm}
         },
         "responsive_count": len(responsive),
         "unresponsive_count": len(unresponsive),
         "unresponsive_models": unresponsive,
-        "new_models_count": len(new_discovered),
-        "new_models": sorted(new_discovered),
+        "degraded_models": degraded,
+        "free_models_total": len(openrouter_free_models),
+        "free_models_health": free_model_health,
+        "new_models_count": len(new_free_models),
+        "new_models": [nm["raw_id"] for nm in new_free_models],
+        "new_free_models_detail": new_free_models,
+        "recent_paid_models_count": len(recent_paid_models),
+        "recent_paid_models": recent_paid_models[:12],
+        "active_deals_count": active_deals_count,
         "summary": summary_text
     }
 
     try:
         with open(HEALTH_FILE, "w", encoding="utf-8") as f:
             json.dump(result_data, f, indent=2)
-    except Exception as e:
-        if not quiet:
-            print(f"[!] Could not write health file: {e}")
+    except Exception:
+        pass
 
+    # CLI Output Rendering
     if not quiet:
-        print("\n Provider Endpoints:")
+        print("\n Provider Gateways:")
         print(f"  [{'✓' if openrouter_ok else '✖'}] OpenRouter API    - {'200 OK' if openrouter_ok else 'FAIL'} ({lat_or}ms)")
         print(f"  [{'✓' if kilo_ok else '✖'}] Kilo Code Gateway - {'200 OK' if kilo_ok else 'FAIL'} ({lat_k}ms)")
         print(f"  [{'✓' if groq_ok else '✖'}] Groq API          - {'200 OK' if groq_ok else 'FAIL'} ({lat_groq}ms)")
+        print(f"  [{'✓' if lmstudio_ok else '✖'}] LM Studio LAN     - {'200 OK' if lmstudio_ok else 'OFFLINE'} ({lat_lm}ms)")
 
-        print("\n Fleet Models Status:")
-        print(f"  [✓] {len(responsive)}/{len(KNOWN_ALLOWLIST)} Models Verified Active & Responsive")
+        print(f"\n All Live OpenRouter Free Models ({len(openrouter_free_models)} Models Audited):")
+        for m in sorted(openrouter_free_models, key=lambda x: x["id"]):
+            mid = m["id"]
+            h = free_model_health.get(mid, {})
+            st = h.get("status", "OK")
+            col = GREEN if st == "OK" else (YELLOW if st == "DEGRADED" else RED)
+            upt = f"{h.get('uptime_1d', 100)}% upt"
+            lat = f"{h.get('latency_ms', 0)}ms"
+            warn = f"({h.get('warning', '')})" if h.get("warning") else ""
+            ctx = f"{m.get('context_length', 0)//1000}k" if m.get('context_length', 0) >= 1000 else str(m.get('context_length', 0))
+            print(f"  [{col}{st:<8}{RESET}] {mid:<46} | ctx:{ctx:<5} | {upt:<9} | {lat:<6} {YELLOW}{warn}{RESET}")
+
+        print(f"\n Active Allowlisted Models:")
+        print(f"  [✓] {len(responsive)}/{len(current_allowlist)} Allowlisted Models Active")
         if unresponsive:
-            print(f"  [!] {len(unresponsive)} Unresponsive Models: {', '.join(unresponsive)}")
-        else:
-            print("  [✓] 0 Retired or Unresponsive Models")
+            print(f"  {RED}[!] {len(unresponsive)} Unresponsive / Offline Models:{RESET}")
+            for u in unresponsive:
+                print(f"      • {u}")
+        if degraded:
+            print(f"  {YELLOW}[!] Degraded Models (Timeout / Latency Risk):{RESET}")
+            for d in degraded:
+                print(f"      • {d}")
 
-        print("\n Free Model Discovery:")
-        if new_discovered:
-            print(f"  [+] {len(new_discovered)} Newly Released Free Models on OpenRouter:")
-            for nm in sorted(new_discovered):
-                print(f"      • openrouter/{nm}")
+        print(f"\n Newly Discovered Free Models ({len(new_free_models)} Ready to Whitelist):")
+        if new_free_models:
+            for nm in new_free_models:
+                print(f"  {GREEN}[+]{RESET} {nm['id']:<48} | ctx: {nm['context_length']//1000}k | {nm['name']}")
         else:
-            print("  [i] All known free models are already captured.")
+            print("  [i] All known free models are already captured in allowlist.")
 
-        print("\n" + "=" * 75)
-        print(f" Status: {overall_status} | Elapsed: {duration_ms}ms")
-        print("=" * 75 + "\n")
+        print(f"\n Live Paid Models Updated on OpenRouter (Past 14 Days - {len(recent_paid_models)} Total):")
+        for pm in recent_paid_models[:8]:
+            p_val = f"${float(pm['prompt'])*1_000_000:.2f}" if pm['prompt'] != '0' else 'free'
+            c_val = f"${float(pm['completion'])*1_000_000:.2f}" if pm['completion'] != '0' else 'free'
+            print(f"  {CYAN}[UPD]{RESET} {pm['id']:<40} | {pm['days_ago']}d ago | ctx:{pm['context_length']//1000}k | {p_val}/{c_val} per 1M | {pm['name']}")
+
+        print(f"\n Promotional Deals:")
+        print(f"  {MAGENTA}★ {active_deals_count} active discounted models on OpenRouter (Press D in REY CLI to view all deals){RESET}")
+
+        print("\n" + "=" * 85)
+        print(f" Status: {overall_status} | Elapsed: {duration_ms}ms | Last Check: {result_data['last_check_str']}")
+        print("=" * 85 + "\n")
 
     return result_data
 

@@ -58,7 +58,11 @@ PAGE2_MODELS = {
     "S": ("opencode/mimo-v2.5-free", "opencode", "OpenCode Mimo v2.5 (Free)"),
     "T": ("opencode/muse-spark-1.3-contributor-free", "opencode", "OpenCode Muse Spark 1.3 Contributor (Free)"),
     "U": ("opencode/muse-spark-1.2-contributor-free", "opencode", "OpenCode Muse Spark 1.2 Contributor (Free)"),
-    "V": ("opencode/muse-spark-1.3-free", "opencode", "OpenCode Muse Spark 1.3 Standard (Free)")
+    "V": ("opencode/muse-spark-1.3-free", "opencode", "OpenCode Muse Spark 1.3 Standard (Free)"),
+    "W": ("deepseek/deepseek-r1-distill-qwen-1.5b", "deepseek", "DeepSeek R1 Distill Qwen 1.5B (LM Studio)"),
+    "X": ("lmstudio/qwen3.5-0.8b", "lmstudio", "Qwen 3.5 0.8B (LM Studio)"),
+    "Y": ("openrouter/inclusionai/ling-3.0-flash-vl:free", "openrouter", "InclusionAI Ling 3.0 Flash VL (Free 262k)"),
+    "Z": ("openrouter/thinkingmachines/inkling-small:free", "openrouter", "ThinkingMachines Inkling Small (Free 1M)")
 }
 
 def parse_model_string(model_str):
@@ -225,7 +229,7 @@ def set_rotation(codes_or_str):
 
     if invalid:
         print(f"\n[!] Invalid model code(s): {', '.join(invalid)}")
-        print("[i] Available codes: 1-7 (Page 1), A-W (Page 2). Example: W, U, T")
+        print("[i] Available codes: 1-7 (Page 1), A-Z (Page 2). Example: W, U, T")
         return False
 
     if len(pool) < 2:
@@ -316,7 +320,7 @@ def show_page2():
     print("=" * 75)
 
     try:
-        choice = input("\n Select model [A-W] or enter 2-5 models (e.g. W, U, T), or 0 to go back: ").strip()
+        choice = input("\n Select model [A-Z] or enter 2-5 models (e.g. W, U, T), or 0 to go back: ").strip()
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
         return
@@ -373,7 +377,7 @@ def interactive_menu():
     for k, (model_id, prov, desc) in sorted(PAGE1_MODELS.items()):
         print(f" [{k}] {desc}")
         print(f"     ID: {model_id}")
-    print(" [8] View Other Allowlisted Models (Page 2: Options A-W, Zero Typing)")
+    print(" [8] View Other Allowlisted Models (Page 2: Options A-Z, Zero Typing)")
     print(" [R] Setup Rotating Model Pool (e.g. W, U, T to loop 2-5 models per prompt)")
     print(" [9] Clear / Remove Override & Rotation")
     print(" [0] Cancel (Keep current)")
@@ -433,6 +437,10 @@ if __name__ == "__main__":
         elif "," in arg or len(sys.argv) > 2:
             items = sys.argv[1:]
             set_rotation(" ".join(items))
+        elif arg in PAGE1_MODELS:
+            set_override(PAGE1_MODELS[arg][0])
+        elif arg.upper() in PAGE2_MODELS:
+            set_override(PAGE2_MODELS[arg.upper()][0])
         else:
             set_override(arg)
     else:
