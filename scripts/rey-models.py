@@ -355,7 +355,7 @@ def main():
     with open(LIVE_MODELS, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2)
 
-# 6. Print output
+    # 6. Print output
     if "--list" in sys.argv or "-l" in sys.argv:
         print_list(output)
     else:

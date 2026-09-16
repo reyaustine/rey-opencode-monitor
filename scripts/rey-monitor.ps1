@@ -299,8 +299,15 @@ function Refresh-Status {
 
   if ($ok) {
     $q = $script:openrouterQuota
+    $budget = if ($null -ne $q.budget_status) { $q.budget_status } else { 'UNKNOWN' }
     if ($q -and $q.is_rate_limited) {
       $state.Health = "DEGRADED (OR 429 - $($q.hours_left)h TO RESET | FALLBACKS ON)"
+    } elseif ($q -and $budget -eq 'DEPLETED') {
+      $state.Health = "DEGRADED (OR CREDIT DEPLETED - FALLBACKS ON)"
+    } elseif ($q -and $budget -eq 'CRITICAL') {
+      $state.Health = "DEGRADED (OR CREDIT CRITICAL - FALLBACKS ON)"
+    } elseif ($q -and $budget -eq 'LOW') {
+      $state.Health = "DEGRADED (OR CREDIT LOW)"
     } elseif ($dbData -and $dbData.model_health) {
       $mh = $dbData.model_health
       if ($mh.running) {
@@ -334,7 +341,7 @@ function Refresh-Status {
           $diagLines += "AUTO-DEPLOY FAILED"
         }
       }
-} elseif ([string]::IsNullOrWhiteSpace((Get-Content -LiteralPath $cfgPath -Raw))) {
+    } elseif ([string]::IsNullOrWhiteSpace((Get-Content -LiteralPath $cfgPath -Raw))) {
       $diagLines += "opencode.jsonc EMPTY"
       $swarmCfg = Join-Path (Join-Path $scriptDir '..') 'configs\opencode.jsonc'
       if (Test-Path -LiteralPath $swarmCfg) {
@@ -656,7 +663,7 @@ function Draw([int]$frame, [bool]$working) {
     $level = [Math]::Max(0, [Math]::Min(20, $level))
     $bar = ('#' * $level).PadRight(20, '.')
 
-    $healthColor = if ($state.Health -like '*NOMINAL*') { 'Green' } elseif ($state.Health -like '*CHECKING*') { 'Yellow' } else { 'Red' }
+    $healthColor = if ($state.Health -like '*NOMINAL*') { 'Green' } elseif ($state.Health -like '*CHECKING*' -or $state.Health -like '*CREDIT LOW*') { 'Yellow' } else { 'Red' }
     $actColor    = if ($working) { 'Yellow' } else { 'Green' }
     $tag         = if ($working) { '[ THINKING ]' } else { '[ STANDBY ]' }
     $headColor   = if ($working) { 'Yellow' } else { 'Cyan' }
@@ -684,11 +691,16 @@ function Draw([int]$frame, [bool]$working) {
       $provText = "OR 429 (0/{0} free, rst {1}h) [FALLBACKS ON]" -f $lim, $q.hours_left
       $provColor = 'Red'
     } elseif ($q -and $q.ok) {
-      $rem = if ($null -ne $q.free_remaining) { $q.free_remaining } else { 50 }
-      $lim = if ($q.free_limit) { $q.free_limit } else { 50 }
+      $freeRem = if ($q.free_quota_known) { $q.free_remaining } else { '?' }
+      $freeLim = if ($q.free_quota_known) { $q.free_limit } else { '?' }
       $bal = [double]($q.credits_remaining)
-      $provText = "OR {0}/{1} free OK (`${2:N2}) | {3}" -f $rem, $lim, $bal, $state.Providers
-      $provColor = 'White'
+      $limit = [double]($q.credit_limit)
+      $percent = [double]($q.credit_percent_remaining)
+      $budget = if ($null -ne $q.budget_status) { $q.budget_status } else { 'UNKNOWN' }
+      $budgetText = if ($budget -eq 'DEPLETED') { 'CREDIT DEPLETED' } elseif ($budget -eq 'CRITICAL') { 'CRITICAL CREDIT' } elseif ($budget -eq 'LOW') { 'LOW CREDIT' } elseif ($budget -eq 'OK') { 'CREDIT OK' } else { 'CREDIT UNKNOWN' }
+      $limitText = if ($limit -gt 0) { $limit.ToString('N2') } else { '?' }
+      $provText = ('OR free {0}/{1} | paid ${2:N3}/${3} ({4:N1}%) | {5} | {6}' -f $freeRem, $freeLim, $bal, $limitText, $percent, $budgetText, $state.Providers)
+      $provColor = if ($budget -eq 'DEPLETED' -or $budget -eq 'CRITICAL') { 'Red' } elseif ($budget -eq 'LOW') { 'Yellow' } else { 'White' }
     }
 
     $sysRows = @(
@@ -703,7 +715,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-@{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | ?: help)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | ?: help)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -970,7 +982,7 @@ try {
               Write-Host "  Switching to: $providerLabel" -ForegroundColor Yellow
               Write-Host "  ─────────────────────────────" -ForegroundColor DarkGray
 
-$switchPs = Join-Path $scriptDir 'switch-provider.ps1'
+              $switchPs = Join-Path $scriptDir 'switch-provider.ps1'
               if (-not (Test-Path -LiteralPath $switchPs)) {
                 $switchPs = Join-Path $confDir 'switch-provider.ps1'
               }
@@ -998,7 +1010,7 @@ $switchPs = Join-Path $scriptDir 'switch-provider.ps1'
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
-if ($key.KeyChar -eq '?') {
+          if ($key.KeyChar -eq '?') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
             Write-Host ""

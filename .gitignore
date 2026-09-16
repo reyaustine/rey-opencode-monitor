@@ -41,6 +41,22 @@ openrouter-quota.json
 .DS_Store
 Thumbs.db
 
+# Dependencies
+node_modules/
+
+# Runtime state and dynamic discovery cache (generated at runtime)
+live-models.json
+openrouter-deals.json
+override-lock.json
+*.dat
+*.Name
+
+# Root deployed config mirrors (canonical source lives in configs/)
+/opencode.json
+/opencode.jsonc
+/model-fallback.json
+/skill-routing.yaml
+
 # Release assets
 *.zip
 *.tgz

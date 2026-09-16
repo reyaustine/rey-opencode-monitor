@@ -60,8 +60,16 @@ def build_status():
 
     health = "NOMINAL"
     mh = state.get("model_health")
+    quota_budget = quota.get("budget_status") if quota else None
+    quota_credits = float(quota.get("credits_remaining", 0) or 0) if quota else 0
     if quota and quota.get("is_rate_limited"):
         health = f"OR-429 ({quota.get('hours_left', 0)}h)"
+    elif quota_budget == "DEPLETED":
+        health = f"OR-DEPLETED (${quota_credits:.3f} left)"
+    elif quota_budget == "CRITICAL":
+        health = f"OR-CRITICAL (${quota_credits:.3f} left)"
+    elif quota_budget == "LOW":
+        health = f"OR-LOW (${quota_credits:.3f} left)"
     elif mh:
         if mh.get("unresponsive_count", 0) > 0:
             health = f"DEGRADED ({mh['unresponsive_count']} offline)"
@@ -72,9 +80,16 @@ def build_status():
 
     or_quota = "?"
     if quota and quota.get("ok"):
-        rem = quota.get("free_remaining", "?")
-        lim = quota.get("free_limit", 50)
-        or_quota = f"{rem}/{lim}"
+        if quota.get("free_quota_known"):
+            free_text = f"{quota.get('free_remaining', '?')}/{quota.get('free_limit', '?')}"
+        else:
+            free_text = "?/?"
+        credits = float(quota.get("credits_remaining", 0) or 0)
+        credit_limit = float(quota.get("credit_limit", 0) or 0)
+        percent = float(quota.get("credit_percent_remaining", 0) or 0)
+        daily = float(quota.get("usage_daily", 0) or 0)
+        limit_text = f"{credit_limit:.2f}" if credit_limit > 0 else "?"
+        or_quota = f"{free_text} free | ${credits:.3f}/${limit_text} ({percent:.1f}%) | today ${daily:.3f}"
 
     return {
         "ok": state.get("ok", False),

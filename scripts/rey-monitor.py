@@ -526,9 +526,16 @@ class ReyMonitor:
         if ok:
             mh = db_data.get('model_health') if ('db_data' in locals() and db_data) else None
             q = self.state.get('openrouter_quota')
+            budget = q.get('budget_status', 'UNKNOWN') if q else 'UNKNOWN'
             if q and q.get('is_rate_limited'):
                 hrs = q.get('hours_left', 0)
                 self.state['health'] = f"DEGRADED (OR 429 - {hrs}h TO RESET | FALLBACKS ON)"
+            elif q and budget == 'DEPLETED':
+                self.state['health'] = 'DEGRADED (OR CREDIT DEPLETED - FALLBACKS ON)'
+            elif q and budget == 'CRITICAL':
+                self.state['health'] = 'DEGRADED (OR CREDIT CRITICAL - FALLBACKS ON)'
+            elif q and budget == 'LOW':
+                self.state['health'] = 'DEGRADED (OR CREDIT LOW)'
             elif mh:
                 if mh.get('running'):
                     self.state['health'] = 'CHECKING FLEET HEALTH...'
@@ -560,7 +567,7 @@ class ReyMonitor:
         level = max(0, min(20, level))
         bar = ('#' * level).ljust(20, '.')
 
-        health_color = GREEN if 'NOMINAL' in self.state['health'] else (YELLOW if 'CHECKING' in self.state['health'] else RED)
+        health_color = GREEN if 'NOMINAL' in self.state['health'] else (YELLOW if 'CHECKING' in self.state['health'] or 'CREDIT LOW' in self.state['health'] else RED)
         act_color = YELLOW if working else GREEN
         tag = '[ THINKING ]' if working else '[ STANDBY ]'
         head_color = YELLOW if working else CYAN
@@ -573,11 +580,21 @@ class ReyMonitor:
             prov_text = f"OR 429 (0/{lim} free, rst {hrs}h) [FALLBACKS ON]"
             prov_color = RED
         elif q and q.get('ok'):
-            rem = q.get('free_remaining', 50)
-            lim = q.get('free_limit', 50)
-            bal = q.get('credits_remaining', 0)
-            prov_text = f"OR {rem}/{lim} free OK (${bal:.2f}) | {self.state['providers']}"
-            prov_color = WHITE
+            free_rem = q.get('free_remaining', '?') if q.get('free_quota_known') else '?'
+            free_lim = q.get('free_limit', '?') if q.get('free_quota_known') else '?'
+            credits = float(q.get('credits_remaining', 0) or 0)
+            credit_limit = float(q.get('credit_limit', 0) or 0)
+            percent = float(q.get('credit_percent_remaining', 0) or 0)
+            budget = q.get('budget_status', 'UNKNOWN')
+            budget_text = {
+                'OK': 'CREDIT OK',
+                'LOW': 'LOW CREDIT',
+                'CRITICAL': 'CRITICAL CREDIT',
+                'DEPLETED': 'CREDIT DEPLETED'
+            }.get(budget, 'CREDIT UNKNOWN')
+            limit_text = f"{credit_limit:.2f}" if credit_limit > 0 else '?'
+            prov_text = f"OR free {free_rem}/{free_lim} | paid ${credits:.3f}/{limit_text} ({percent:.1f}%) | {budget_text} | {self.state['providers']}"
+            prov_color = RED if budget in ('CRITICAL', 'DEPLETED') else YELLOW if budget == 'LOW' else WHITE
         else:
             prov_text = self.state['providers']
             prov_color = WHITE

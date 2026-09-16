@@ -57,6 +57,38 @@ BASE_ALLOWLIST = [
     "lmstudio/deepseek-r1-distill-qwen-1.5b"
 ]
 
+BUDGET_WARNING_PERCENT = 25.0
+BUDGET_CRITICAL_PERCENT = 10.0
+
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def classify_budget(remaining, limit):
+    remaining = safe_float(remaining)
+    limit = safe_float(limit)
+    if limit <= 0:
+        return "UNKNOWN", 0.0
+    percent = max(0.0, min(100.0, (remaining / limit) * 100.0))
+    if remaining <= 0:
+        return "DEPLETED", percent
+    if percent <= BUDGET_CRITICAL_PERCENT:
+        return "CRITICAL", percent
+    if percent <= BUDGET_WARNING_PERCENT:
+        return "LOW", percent
+    return "OK", percent
+
 def ping_endpoint(url, headers=None, timeout=6):
     """Pings an HTTP endpoint and measures latency."""
     if headers is None:
@@ -101,17 +133,28 @@ def check_openrouter_quota():
         "ok": False,
         "status": "UNKNOWN",
         "label": "unknown",
+        "credit_limit": 0.0,
+        "credits_remaining": 0.0,
+        "credit_percent_remaining": 0.0,
+        "budget_status": "UNKNOWN",
+        "budget_ok": False,
+        "budget_usable": False,
         "free_limit": 50,
         "free_remaining": 50,
-        "credits_remaining": 0.0,
+        "free_used": 0,
+        "free_quota_known": False,
+        "free_probe_status": "NOT_CHECKED",
         "usage_daily": 0.0,
+        "usage_weekly": 0.0,
+        "usage_monthly": 0.0,
         "is_rate_limited": False,
         "reset_time": "N/A",
         "hours_left": 0.0,
-        "message": ""
+        "message": "",
+        "last_checked": ""
     }
-    key = ""
-    if os.path.exists(AUTH_PATH):
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key and os.path.exists(AUTH_PATH):
         try:
             with open(AUTH_PATH, "r", encoding="utf-8") as f:
                 key = json.load(f).get("openrouter", {}).get("key", "")
@@ -125,10 +168,34 @@ def check_openrouter_quota():
         req = urllib.request.Request("https://openrouter.ai/api/v1/auth/key", headers={"Authorization": f"Bearer {key}", "User-Agent": "REY-Quota-Monitor/1.0"})
         with urllib.request.urlopen(req, timeout=5) as r:
             kdata = json.loads(r.read().decode())["data"]
+            limit = safe_float(kdata.get("limit", 0))
+            remaining = safe_float(kdata.get("limit_remaining", 0))
+            free_data = kdata.get("free_model_daily_requests") or {}
+            budget_status, percent = classify_budget(remaining, limit)
+            budget_labels = {
+                "OK": "CREDIT_OK",
+                "LOW": "LOW_CREDIT",
+                "CRITICAL": "CRITICAL_CREDIT",
+                "DEPLETED": "CREDIT_DEPLETED",
+                "UNKNOWN": "CREDIT_UNKNOWN"
+            }
             quota_info["ok"] = True
             quota_info["label"] = kdata.get("label", "")
-            quota_info["credits_remaining"] = round(kdata.get("limit_remaining", 0), 4)
-            quota_info["usage_daily"] = round(kdata.get("usage_daily", 0), 4)
+            quota_info["credit_limit"] = round(limit, 4)
+            quota_info["credits_remaining"] = round(remaining, 4)
+            quota_info["credit_percent_remaining"] = round(percent, 1)
+            quota_info["budget_status"] = budget_status
+            quota_info["budget_ok"] = budget_status == "OK"
+            quota_info["budget_usable"] = budget_status in ("OK", "LOW")
+            quota_info["status"] = budget_labels.get(budget_status, "CREDIT_UNKNOWN")
+            quota_info["free_limit"] = safe_int(free_data.get("limit"), quota_info["free_limit"])
+            quota_info["free_remaining"] = safe_int(free_data.get("remaining"), quota_info["free_remaining"])
+            quota_info["free_used"] = safe_int(free_data.get("used"), 0)
+            quota_info["free_quota_known"] = bool(free_data)
+            quota_info["usage_daily"] = round(safe_float(kdata.get("usage_daily"), 0), 4)
+            quota_info["usage_weekly"] = round(safe_float(kdata.get("usage_weekly"), 0), 4)
+            quota_info["usage_monthly"] = round(safe_float(kdata.get("usage_monthly"), 0), 4)
+            quota_info["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
         quota_info["error"] = str(e)
 
@@ -150,18 +217,18 @@ def check_openrouter_quota():
             }).encode()
         )
         with urllib.request.urlopen(req2, timeout=4) as r2:
-            quota_info["status"] = "HEALTHY"
+            quota_info["free_probe_status"] = "OK"
             quota_info["is_rate_limited"] = False
-            quota_info["free_remaining"] = 50
     except urllib.error.HTTPError as e:
+        quota_info["free_probe_status"] = f"HTTP_{e.code}"
         if e.code == 429:
             try:
                 body = json.loads(e.read().decode())
                 meta = body.get("error", {}).get("metadata", {})
                 headers = meta.get("headers", {})
-                reset_ms = int(headers.get("X-RateLimit-Reset", 0))
-                rem = int(headers.get("X-RateLimit-Remaining", 0))
-                limit = int(headers.get("X-RateLimit-Limit", 50))
+                reset_ms = safe_int(headers.get("X-RateLimit-Reset"), 0)
+                rem = safe_int(headers.get("X-RateLimit-Remaining"), 0)
+                limit = safe_int(headers.get("X-RateLimit-Limit"), quota_info["free_limit"])
                 
                 reset_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(reset_ms / 1000)) if reset_ms else "Unknown"
                 hours_left = round((reset_ms / 1000 - time.time()) / 3600, 1) if reset_ms else 0
@@ -170,17 +237,15 @@ def check_openrouter_quota():
                 quota_info["is_rate_limited"] = True
                 quota_info["free_limit"] = limit
                 quota_info["free_remaining"] = rem
+                quota_info["free_quota_known"] = True
                 quota_info["reset_time"] = reset_time
                 quota_info["hours_left"] = hours_left
                 quota_info["message"] = body.get("error", {}).get("message", "Rate limit exceeded")
             except Exception:
                 quota_info["status"] = "RATE_LIMITED_429"
                 quota_info["is_rate_limited"] = True
-        else:
-            quota_info["status"] = f"HTTP_{e.code}"
     except Exception as e:
-        quota_info["status"] = f"UNREACHABLE ({type(e).__name__})"
-        quota_info["ok"] = False
+        quota_info["free_probe_status"] = f"UNREACHABLE ({type(e).__name__})"
         quota_info["error"] = str(e)
 
     quota_file = os.path.join(CONFIG_DIR, "openrouter-quota.json")
@@ -373,9 +438,7 @@ def run_health_check(quiet=False):
             if lmstudio_ok:
                 responsive.append(full_id)
             else:
-                # LM Studio is optional — skip these models gracefully
-                # instead of marking them unresponsive when LM Studio is simply offline
-                pass
+                unresponsive.append(full_id)
         else:
             responsive.append(full_id)
 
@@ -422,9 +485,10 @@ def run_health_check(quiet=False):
             pass
 
     quota_info = check_openrouter_quota()
+    budget_status = quota_info.get("budget_status", "UNKNOWN")
 
     duration_ms = int((time.time() - start_time) * 1000)
-    if quota_info.get("is_rate_limited"):
+    if quota_info.get("is_rate_limited") or budget_status in ("LOW", "CRITICAL", "DEPLETED"):
         overall_status = "DEGRADED"
     else:
         overall_status = "HEALTHY" if len(unresponsive) == 0 else "DEGRADED"
@@ -435,6 +499,12 @@ def run_health_check(quiet=False):
     )
     if quota_info.get("is_rate_limited"):
         summary_text += f" [OPENROUTER 429 LIMITED - resets in {quota_info.get('hours_left')}h]"
+    elif budget_status == "DEPLETED":
+        summary_text += f" [OPENROUTER CREDIT DEPLETED - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
+    elif budget_status == "CRITICAL":
+        summary_text += f" [OPENROUTER CREDIT CRITICAL - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
+    elif budget_status == "LOW":
+        summary_text += f" [OPENROUTER CREDIT LOW - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
 
     result_data = {
         "running": False,
@@ -472,15 +542,26 @@ def run_health_check(quiet=False):
 
     # CLI Output Rendering
     if not quiet:
+        free_rem = quota_info.get("free_remaining", "?") if quota_info.get("free_quota_known") else "?"
+        free_lim = quota_info.get("free_limit", "?") if quota_info.get("free_quota_known") else "?"
+        credits = safe_float(quota_info.get("credits_remaining"), 0)
+        credit_limit = safe_float(quota_info.get("credit_limit"), 0)
+        percent = safe_float(quota_info.get("credit_percent_remaining"), 0)
+        daily = safe_float(quota_info.get("usage_daily"), 0)
         print("\n OpenRouter Rate Limit & Quota Monitor:")
         if quota_info.get("is_rate_limited"):
-            print(f"  {RED}[429 RATE LIMITED]{RESET} Free Tier Models Quota Exhausted! (0/{quota_info.get('free_limit', 50)} requests remaining)")
+            print(f"  {RED}[429 RATE LIMITED]{RESET} Free-tier probe blocked ({free_rem}/{free_lim} remaining)")
             print(f"  {YELLOW}• Daily Reset Time  :{RESET} {quota_info.get('reset_time')} ({quota_info.get('hours_left')} hours remaining)")
-            print(f"  {YELLOW}• Paid Credit Balance:{RESET} ${quota_info.get('credits_remaining', 0)} (Paid models are unaffected by free quota)")
+            print(f"  {YELLOW}• Paid Credit Balance:{RESET} ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
             print(f"  {CYAN}• Auto-Defense Engaged:{RESET} OpenCode & Mistral fallback models active so subagents continue without canceling!")
-            print(f"  {GRAY}• Tip                : Adding $5 credit to OpenRouter permanently unlocks 1,000 free requests/day.{RESET}")
+        elif budget_status == "DEPLETED":
+            print(f"  {RED}[CREDIT DEPLETED]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%)")
+        elif budget_status == "CRITICAL":
+            print(f"  {YELLOW}[CRITICAL CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
+        elif budget_status == "LOW":
+            print(f"  {YELLOW}[LOW CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
         else:
-            print(f"  {GREEN}[HEALTHY]{RESET} Free tier models active ({quota_info.get('free_remaining', 50)}/50 remaining). Balance: ${quota_info.get('credits_remaining', 0)}")
+            print(f"  {GREEN}[CREDIT OK]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
 
         print("\n Provider Gateways:")
         print(f"  [{'✓' if openrouter_ok else '✖'}] OpenRouter API    - {'200 OK' if openrouter_ok else 'FAIL'} ({lat_or}ms)")

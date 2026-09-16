@@ -83,6 +83,38 @@ PROVIDERS = {
     }
 }
 
+BUDGET_WARNING_PERCENT = 25.0
+BUDGET_CRITICAL_PERCENT = 10.0
+
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def classify_budget(remaining, limit):
+    remaining = safe_float(remaining)
+    limit = safe_float(limit)
+    if limit <= 0:
+        return "UNKNOWN", 0.0
+    percent = max(0.0, min(100.0, (remaining / limit) * 100.0))
+    if remaining <= 0:
+        return "DEPLETED", percent
+    if percent <= BUDGET_CRITICAL_PERCENT:
+        return "CRITICAL", percent
+    if percent <= BUDGET_WARNING_PERCENT:
+        return "LOW", percent
+    return "OK", percent
+
 def load_auth_keys():
     """Load API keys from auth.json"""
     keys = {}
@@ -122,14 +154,25 @@ def check_openrouter_quota(auth_keys):
         "ok": False,
         "status": "UNKNOWN",
         "label": "unknown",
+        "credit_limit": 0.0,
+        "credits_remaining": 0.0,
+        "credit_percent_remaining": 0.0,
+        "budget_status": "UNKNOWN",
+        "budget_ok": False,
+        "budget_usable": False,
         "free_limit": 50,
         "free_remaining": 50,
-        "credits_remaining": 0.0,
+        "free_used": 0,
+        "free_quota_known": False,
+        "free_probe_status": "NOT_CHECKED",
         "usage_daily": 0.0,
+        "usage_weekly": 0.0,
+        "usage_monthly": 0.0,
         "is_rate_limited": False,
         "reset_time": "N/A",
         "hours_left": 0.0,
-        "message": ""
+        "message": "",
+        "last_checked": ""
     }
 
     # Try auth key from environment first
@@ -147,10 +190,34 @@ def check_openrouter_quota(auth_keys):
                                              "User-Agent": "REY-Quota-Monitor/1.0"})
         with urllib.request.urlopen(req, timeout=5) as r:
             kdata = json.loads(r.read().decode())["data"]
+            limit = safe_float(kdata.get("limit", 0))
+            remaining = safe_float(kdata.get("limit_remaining", 0))
+            free_data = kdata.get("free_model_daily_requests") or {}
+            budget_status, percent = classify_budget(remaining, limit)
+            budget_labels = {
+                "OK": "CREDIT_OK",
+                "LOW": "LOW_CREDIT",
+                "CRITICAL": "CRITICAL_CREDIT",
+                "DEPLETED": "CREDIT_DEPLETED",
+                "UNKNOWN": "CREDIT_UNKNOWN"
+            }
             quota_info["ok"] = True
             quota_info["label"] = kdata.get("label", "")
-            quota_info["credits_remaining"] = round(kdata.get("limit_remaining", 0), 4)
-            quota_info["usage_daily"] = round(kdata.get("usage_daily", 0), 4)
+            quota_info["credit_limit"] = round(limit, 4)
+            quota_info["credits_remaining"] = round(remaining, 4)
+            quota_info["credit_percent_remaining"] = round(percent, 1)
+            quota_info["budget_status"] = budget_status
+            quota_info["budget_ok"] = budget_status == "OK"
+            quota_info["budget_usable"] = budget_status in ("OK", "LOW")
+            quota_info["status"] = budget_labels.get(budget_status, "CREDIT_UNKNOWN")
+            quota_info["free_limit"] = safe_int(free_data.get("limit"), quota_info["free_limit"])
+            quota_info["free_remaining"] = safe_int(free_data.get("remaining"), quota_info["free_remaining"])
+            quota_info["free_used"] = safe_int(free_data.get("used"), 0)
+            quota_info["free_quota_known"] = bool(free_data)
+            quota_info["usage_daily"] = round(safe_float(kdata.get("usage_daily"), 0), 4)
+            quota_info["usage_weekly"] = round(safe_float(kdata.get("usage_weekly"), 0), 4)
+            quota_info["usage_monthly"] = round(safe_float(kdata.get("usage_monthly"), 0), 4)
+            quota_info["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
         quota_info["error"] = str(e)
 
@@ -172,18 +239,18 @@ def check_openrouter_quota(auth_keys):
             }).encode()
         )
         with urllib.request.urlopen(test_req, timeout=4) as r2:
-            quota_info["status"] = "HEALTHY"
+            quota_info["free_probe_status"] = "OK"
             quota_info["is_rate_limited"] = False
-            quota_info["free_remaining"] = 50
     except urllib.error.HTTPError as e:
+        quota_info["free_probe_status"] = f"HTTP_{e.code}"
         if e.code == 429:
             try:
                 body = json.loads(e.read().decode())
                 meta = body.get("error", {}).get("metadata", {})
                 headers = meta.get("headers", {})
-                reset_ms = int(headers.get("X-RateLimit-Reset", 0))
-                rem = int(headers.get("X-RateLimit-Remaining", 0))
-                limit = int(headers.get("X-RateLimit-Limit", 50))
+                reset_ms = safe_int(headers.get("X-RateLimit-Reset"), 0)
+                rem = safe_int(headers.get("X-RateLimit-Remaining"), 0)
+                limit = safe_int(headers.get("X-RateLimit-Limit"), quota_info["free_limit"])
                 
                 reset_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(reset_ms / 1000)) if reset_ms else "Unknown"
                 hours_left = round((reset_ms / 1000 - time.time()) / 3600, 1) if reset_ms else 0
@@ -192,17 +259,15 @@ def check_openrouter_quota(auth_keys):
                 quota_info["is_rate_limited"] = True
                 quota_info["free_limit"] = limit
                 quota_info["free_remaining"] = rem
+                quota_info["free_quota_known"] = True
                 quota_info["reset_time"] = reset_time
                 quota_info["hours_left"] = hours_left
                 quota_info["message"] = body.get("error", {}).get("message", "Rate limit exceeded")
             except Exception:
                 quota_info["status"] = "RATE_LIMITED_429"
                 quota_info["is_rate_limited"] = True
-        else:
-            quota_info["status"] = f"HTTP_{e.code}"
     except Exception as e:
-        quota_info["status"] = f"UNREACHABLE ({type(e).__name__})"
-        quota_info["ok"] = False
+        quota_info["free_probe_status"] = f"UNREACHABLE ({type(e).__name__})"
         quota_info["error"] = str(e)
 
     return quota_info
@@ -296,12 +361,51 @@ def main():
                     "is_rate_limited": False
                 })
 
+    # Persist the OpenRouter summary so rey status / monitor show fresh data
+    for r in results:
+        if r.get("provider") == "openrouter":
+            try:
+                quota_file = os.path.join(CONFIG_DIR, "openrouter-quota.json")
+                with open(quota_file, "w", encoding="utf-8") as qf:
+                    json.dump(r, qf, indent=2)
+            except Exception:
+                pass
+            break
+
     # Sort by health status
     results.sort(key=lambda x: x.get("ok", False), reverse=True)
 
     # Print summary
     print(f"\n{BOLD}📊 PROVIDER STATUS SUMMARY:{RESET}")
     for r in results:
+        if r.get("provider") == "openrouter":
+            budget_status = r.get("budget_status", "UNKNOWN")
+            if r.get("is_rate_limited"):
+                status_icon = "❌"
+                status = "RATE LIMITED"
+            elif budget_status == "DEPLETED":
+                status_icon = "❌"
+                status = "CREDIT DEPLETED"
+            elif budget_status == "CRITICAL":
+                status_icon = "⚠️"
+                status = "CRITICAL CREDIT"
+            elif budget_status == "LOW":
+                status_icon = "⚠️"
+                status = "LOW CREDIT"
+            elif budget_status == "OK":
+                status_icon = "✅"
+                status = "CREDIT OK"
+            else:
+                status_icon = "⚠️"
+                status = "CREDIT UNKNOWN"
+            free_limit = r.get("free_limit", "?") if r.get("free_quota_known") else "?"
+            free_remaining = r.get("free_remaining", "?") if r.get("free_quota_known") else "?"
+            credit_limit = safe_float(r.get("credit_limit"), 0)
+            credits = safe_float(r.get("credits_remaining"), 0)
+            percent = safe_float(r.get("credit_percent_remaining"), 0)
+            limit_text = f"{credit_limit:.2f}" if credit_limit > 0 else "?"
+            print(f"  {status_icon} {r['name']:<20} {status:<18} free {free_remaining}/{free_limit} | paid ${credits:.3f}/${limit_text} ({percent:.1f}%)")
+            continue
         color = GREEN if r.get("ok") else YELLOW if "AUTH" in r.get("status", "") else RED
         limit = r.get("free_limit", 0)
         remaining = r.get("free_remaining", 0)
@@ -313,13 +417,16 @@ def main():
     
     # Count issues
     total_providers = len(results)
-    healthy_providers = sum(1 for r in results if r.get("ok"))
+    healthy_providers = sum(1 for r in results if r.get("ok") and not r.get("is_rate_limited") and r.get("budget_status", "OK") in (None, "OK"))
     rate_limited = sum(1 for r in results if r.get("is_rate_limited", False))
     auth_issues = sum(1 for r in results if "AUTH" in r.get("status", ""))
+    credit_issues = sum(1 for r in results if r.get("provider") == "openrouter" and r.get("budget_status") in ("LOW", "CRITICAL", "DEPLETED"))
 
     print(f"\n  Overall Health: {healthy_providers}/{total_providers} providers healthy")
     if rate_limited > 0:
         print(f"  ⚠️  Rate Limited: {rate_limited} providers")
+    if credit_issues > 0:
+        print(f"  ⚠️  OpenRouter Credit: {credit_issues} provider(s) low or depleted")
     if auth_issues > 0:
         print(f"  🔑 Auth Issues: {auth_issues} providers (missing/invalid API keys)")
 
@@ -328,7 +435,7 @@ def main():
     
     # Find best providers to switch to
     SWITCHABLE = ("kilo", "opencode", "openrouter")
-    available_providers = [r for r in results if r.get("ok") and r["provider"] != "openrouter"]
+    available_providers = [r for r in results if r.get("ok") and not r.get("is_rate_limited") and r.get("budget_status", "OK") == "OK" and r["provider"] != "openrouter"]
     if available_providers:
         print(f"  ✅ Safe providers to use: ", end="")
         provider_names = [r["name"] for r in available_providers]
@@ -340,18 +447,28 @@ def main():
         print(f"     Consider using the healthy providers above instead")
         print(f"     or add more credits to OpenRouter")
 
-    openrouter_issues = next((r for r in results if r["provider"] == "openrouter" and r.get("is_rate_limited", False)), None)
-    if openrouter_issues:
-        hours_left = openrouter_issues.get("hours_left", 0)
-        if hours_left > 0:
-            print(f"     OpenRouter resets in {hours_left:.1f} hours")
-        else:
-            print(f"     OpenRouter rate limit active - consider switching to Kilo or OpenCode")
+    openrouter_result = next((r for r in results if r["provider"] == "openrouter"), None)
+    if openrouter_result:
+        budget_status = openrouter_result.get("budget_status", "UNKNOWN")
+        credits = safe_float(openrouter_result.get("credits_remaining"), 0)
+        daily = safe_float(openrouter_result.get("usage_daily"), 0)
+        if openrouter_result.get("is_rate_limited"):
+            hours_left = openrouter_result.get("hours_left", 0)
+            if hours_left > 0:
+                print(f"     OpenRouter free-tier reset is in {hours_left:.1f} hours")
+            else:
+                print(f"     OpenRouter free-tier rate limit is active - consider switching to Kilo or OpenCode")
+        elif budget_status == "DEPLETED":
+            print(f"     OpenRouter paid credit is depleted (${credits:.3f} remaining; ${daily:.3f} used today)")
+        elif budget_status == "CRITICAL":
+            print(f"     OpenRouter paid credit is critical: ${credits:.3f} remaining (${daily:.3f} used today)")
+        elif budget_status == "LOW":
+            print(f"     OpenRouter paid credit is low: ${credits:.3f} remaining (${daily:.3f} used today)")
 
     # Show provider-specific options (only providers the switcher supports)
     print(f"\n{BOLD}🔄 QUICK PROVIDER SWITCH:{RESET}")
     for r in results:
-        if r["provider"] in SWITCHABLE and r.get("ok"):
+        if r["provider"] in SWITCHABLE and r.get("ok") and not r.get("is_rate_limited") and r.get("budget_status", "OK") == "OK":
             print(f"  Switch to {r['name']} with: rey switch-provider {r['provider']}")
     for r in results:
         if r["provider"] not in SWITCHABLE and r.get("ok"):
