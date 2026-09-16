@@ -11,6 +11,20 @@ param()
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
 $ErrorActionPreference = 'Continue'
+
+# ── Load .env for BYOK API keys ──
+try {
+  $envFile = if ($PSScriptRoot) { Join-Path (Split-Path -Parent $PSScriptRoot) '.env' } else { Join-Path $HOME '.config\opencode\.env' }
+  if (Test-Path -LiteralPath $envFile) {
+    Get-Content -LiteralPath $envFile -Encoding UTF8 | ForEach-Object {
+      $line = $_.Trim()
+      if ($line -and -not $line.StartsWith('#') -and $line -match '^([^=]+)=(.*)$') {
+        [Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim(), 'Process')
+      }
+    }
+  }
+} catch { }
+
 $TICK_MS       = 200
 $REFRESH_EVERY = 15   # ticks between status refreshes (~3s for fast live updates)
 $MAX_THREADS   = 7    # threads displayed in sub-agents pane
@@ -619,7 +633,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health | S: setup)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -750,6 +764,24 @@ function Draw([int]$frame, [bool]$working) {
   }
 }
 
+# ── First-Run Setup Check ──
+$scriptDirCheck = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+$confDirCheck   = Split-Path -Parent $scriptDirCheck
+$setupMarker    = Join-Path $confDirCheck '.setup-complete'
+if (-not (Test-Path -LiteralPath $setupMarker)) {
+  $setupScript = Join-Path $scriptDirCheck 'rey-setup.ps1'
+  if (Test-Path -LiteralPath $setupScript) {
+    try { [Console]::Clear() } catch { Clear-Host }
+    Write-Host "`n  R.E.Y. // First-run detected. Launching setup wizard..." -ForegroundColor Cyan
+    Write-Host "`n  Select your AI providers and enter API keys to get started.`n" -ForegroundColor Gray
+    Start-Sleep -Seconds 1
+    & powershell -ExecutionPolicy Bypass -File "$setupScript"
+    # After setup, re-launch monitor
+    & powershell -ExecutionPolicy Bypass -File "$PSCommandPath"
+    exit
+  }
+}
+
 # --- Initialization ---
 try {
   $Host.UI.RawUI.WindowTitle = 'R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI'
@@ -830,7 +862,7 @@ try {
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
-          if ($key.Key -eq 'H') {
+           if ($key.Key -eq 'H') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
             $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
@@ -845,6 +877,19 @@ try {
               try { [Console]::ReadKey($true) | Out-Null } catch { }
             }
             $script:lastHealthCheck = [DateTime]::Now
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'S') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $setupScript = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'rey-setup.ps1' } else { Join-Path $HOME '.config\opencode\scripts\rey-setup.ps1' }
+            if (Test-Path -LiteralPath $setupScript) {
+              Write-Host "`n  Re-launching setup wizard..." -ForegroundColor Cyan
+              Start-Sleep -Seconds 1
+              & powershell -ExecutionPolicy Bypass -File "$setupScript"
+            }
             Refresh-Status
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
