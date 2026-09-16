@@ -364,7 +364,9 @@ def run_health_check(quiet=False):
             if lmstudio_ok:
                 responsive.append(full_id)
             else:
-                unresponsive.append(full_id)
+                # LM Studio is optional — skip these models gracefully
+                # instead of marking them unresponsive when LM Studio is simply offline
+                pass
         else:
             responsive.append(full_id)
 
