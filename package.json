@@ -49,5 +49,8 @@
   "bugs": {
     "url": "https://github.com/reyaustine/rey-opencode-monitor/issues"
   },
-  "homepage": "https://github.com/reyaustine/rey-opencode-monitor#readme"
+  "homepage": "https://github.com/reyaustine/rey-opencode-monitor#readme",
+  "dependencies": {
+    "@opencode-ai/plugin": "1.18.29"
+  }
 }

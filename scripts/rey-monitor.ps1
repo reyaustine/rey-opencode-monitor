@@ -11,20 +11,6 @@ param()
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
 $ErrorActionPreference = 'Continue'
-
-# ── Load .env for BYOK API keys ──
-try {
-  $envFile = if ($PSScriptRoot) { Join-Path (Split-Path -Parent $PSScriptRoot) '.env' } else { Join-Path $HOME '.config\opencode\.env' }
-  if (Test-Path -LiteralPath $envFile) {
-    Get-Content -LiteralPath $envFile -Encoding UTF8 | ForEach-Object {
-      $line = $_.Trim()
-      if ($line -and -not $line.StartsWith('#') -and $line -match '^([^=]+)=(.*)$') {
-        [Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim(), 'Process')
-      }
-    }
-  }
-} catch { }
-
 $TICK_MS       = 200
 $REFRESH_EVERY = 15   # ticks between status refreshes (~3s for fast live updates)
 $MAX_THREADS   = 7    # threads displayed in sub-agents pane
@@ -323,7 +309,66 @@ function Refresh-Status {
       $state.Health = 'ALL SYSTEMS NOMINAL'
     }
   } else {
-    $state.Health = 'DEGRADED - CHECK LOG'
+    # ── Auto-recovery: diagnose and fix common issues ──
+    $fixAttempted = $false
+    $diagLines = @()
+
+    # Check 1: opencode.jsonc missing or empty → auto-deploy
+    $cfgPath = Join-Path $confDir 'opencode.jsonc'
+    if (-not (Test-Path -LiteralPath $cfgPath)) {
+      $diagLines += "opencode.jsonc MISSING"
+      $swarmCfg = Join-Path $scriptDir ".." "configs" "opencode.jsonc"
+      if (Test-Path -LiteralPath $swarmCfg) {
+        try {
+          Copy-Item -LiteralPath $swarmCfg -Destination $cfgPath -Force
+          $diagLines += "AUTO-DEPLOYED from swarm-pack"
+          $fixAttempted = $true
+        } catch {
+          $diagLines += "AUTO-DEPLOY FAILED"
+        }
+      }
+    } elseif ((Get-Content -LiteralPath $cfgPath -Raw).Trim().Length -lt 10) {
+      $diagLines += "opencode.jsonc EMPTY"
+      $swarmCfg = Join-Path $scriptDir ".." "configs" "opencode.jsonc"
+      if (Test-Path -LiteralPath $swarmCfg) {
+        try {
+          Copy-Item -LiteralPath $swarmCfg -Destination $cfgPath -Force
+          $diagLines += "AUTO-DEPLOYED from swarm-pack"
+          $fixAttempted = $true
+        } catch {
+          $diagLines += "AUTO-DEPLOY FAILED"
+        }
+      }
+    }
+
+    # Check 2: model-fallback.json missing → auto-deploy
+    $fbPath = Join-Path $confDir 'model-fallback.json'
+    if (-not (Test-Path -LiteralPath $fbPath)) {
+      $diagLines += "model-fallback.json MISSING"
+      $swarmFb = Join-Path $scriptDir ".." "configs" "model-fallback.json"
+      if (Test-Path -LiteralPath $swarmFb) {
+        try {
+          Copy-Item -LiteralPath $swarmFb -Destination $fbPath -Force
+          $diagLines += "AUTO-DEPLOYED from swarm-pack"
+          $fixAttempted = $true
+        } catch {
+          $diagLines += "AUTO-DEPLOY FAILED"
+        }
+      }
+    }
+
+    # Check 3: opencode.db missing → report
+    $dbPath = Join-Path $HOME ".local" "share" "opencode" "opencode.db"
+    if (-not (Test-Path -LiteralPath $dbPath)) {
+      $diagLines += "opencode.db NOT FOUND (OpenCode not yet run?)"
+    }
+
+    if ($fixAttempted) {
+      $state.Health = "AUTO-REPAIRED ($($diagLines -join ' | '))"
+      Add-Log "[HEALTH] Auto-recovery: $($diagLines -join ' | ')"
+    } else {
+      $state.Health = "DEGRADED - CHECK LOG ($($diagLines -join ' | '))"
+    }
   }
   $state.LastRefresh = (Get-Date -Format 'HH:mm:ss')
 }
@@ -633,7 +678,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health | S: setup)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | S: switch | L: logs | D: deals | O: override | H: health | ?: help)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -764,24 +809,6 @@ function Draw([int]$frame, [bool]$working) {
   }
 }
 
-# ── First-Run Setup Check ──
-$scriptDirCheck = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-$confDirCheck   = Split-Path -Parent $scriptDirCheck
-$setupMarker    = Join-Path $confDirCheck '.setup-complete'
-if (-not (Test-Path -LiteralPath $setupMarker)) {
-  $setupScript = Join-Path $scriptDirCheck 'rey-setup.ps1'
-  if (Test-Path -LiteralPath $setupScript) {
-    try { [Console]::Clear() } catch { Clear-Host }
-    Write-Host "`n  R.E.Y. // First-run detected. Launching setup wizard..." -ForegroundColor Cyan
-    Write-Host "`n  Select your AI providers and enter API keys to get started.`n" -ForegroundColor Gray
-    Start-Sleep -Seconds 1
-    & powershell -ExecutionPolicy Bypass -File "$setupScript"
-    # After setup, re-launch monitor
-    & powershell -ExecutionPolicy Bypass -File "$PSCommandPath"
-    exit
-  }
-}
-
 # --- Initialization ---
 try {
   $Host.UI.RawUI.WindowTitle = 'R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI'
@@ -862,7 +889,105 @@ try {
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
-           if ($key.Key -eq 'H') {
+          if ($key.Key -eq 'S') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $confDir = Split-Path -Parent $scriptDir
+
+            Write-Host ""
+            Write-Host "  ============================================================" -ForegroundColor Cyan
+            Write-Host "   OpenCode Free Model Provider Switcher" -ForegroundColor Cyan
+            Write-Host "  ============================================================" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "   [1] Kilo      - kilo.ai free models" -ForegroundColor White
+            Write-Host "   [2] OpenCode  - opencode built-in free" -ForegroundColor White
+            Write-Host "   [3] OpenRouter - openrouter.ai free" -ForegroundColor White
+            Write-Host "   [0] Cancel" -ForegroundColor DarkGray
+            Write-Host ""
+            Write-Host "  ============================================================" -ForegroundColor Cyan
+            Write-Host ""
+            $choice = Read-Host "  Select provider [0-3]"
+
+            $providerMap = @{
+              '1' = 'kilo'
+              '2' = 'opencode'
+              '3' = 'openrouter'
+            }
+
+            if ($providerMap.ContainsKey($choice)) {
+              $providerName = $providerMap[$choice]
+              $providerLabel = switch ($providerName) {
+                'kilo'      { 'Kilo (kilo.ai)' }
+                'opencode'  { 'OpenCode (built-in)' }
+                'openrouter'{ 'OpenRouter (openrouter.ai)' }
+              }
+              Write-Host ""
+              Write-Host "  Switching to: $providerLabel" -ForegroundColor Yellow
+              Write-Host "  ─────────────────────────────" -ForegroundColor DarkGray
+
+              $switchPs = Join-Path $confDir 'switch-provider.ps1'
+              if (-not (Test-Path -LiteralPath $switchPs)) {
+                $switchPs = Join-Path $HOME 'switch-provider.ps1'
+              }
+              if (Test-Path -LiteralPath $switchPs) {
+                & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $switchPs -Provider $providerName
+              } else {
+                Write-Host "  [!] switch-provider.ps1 not found." -ForegroundColor Red
+              }
+              Write-Host ""
+              Write-Host "  Restart OpenCode to use the new provider." -ForegroundColor Yellow
+            } elseif ($choice -eq '0') {
+              Write-Host ""
+              Write-Host "  Cancelled." -ForegroundColor DarkGray
+            } else {
+              Write-Host ""
+              Write-Host "  Invalid choice." -ForegroundColor Red
+            }
+            Write-Host ""
+            Write-Host "  Press any key to return..." -ForegroundColor DarkGray
+            try { [Console]::ReadKey($true) | Out-Null } catch { }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'Oem2' -and $key.KeyChar -eq '?') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            Write-Host ""
+            Write-Host "  ===============================================" -ForegroundColor Cyan
+            Write-Host "   R.E.Y. CLI - HOTKEY REFERENCE" -ForegroundColor Cyan
+            Write-Host "  ===============================================" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "   Q .............. Quit R.E.Y. Monitor" -ForegroundColor White
+            Write-Host "   T .............. Toggle Token Fleet / Fleet view" -ForegroundColor White
+            Write-Host "   S .............. Switch Provider (Kilo/OpenCode/OpenRouter)" -ForegroundColor White
+            Write-Host "   L .............. View session logs" -ForegroundColor White
+            Write-Host "   D .............. View OpenRouter deals" -ForegroundColor White
+            Write-Host "   O .............. Model override (lock/rotation)" -ForegroundColor White
+            Write-Host "   H .............. Fleet health watchdog" -ForegroundColor White
+            Write-Host "   ? .............. This help screen" -ForegroundColor White
+            Write-Host ""
+            Write-Host "  ===============================================" -ForegroundColor Cyan
+            Write-Host "   CLI Commands (outside monitor):" -ForegroundColor Yellow
+            Write-Host "  ===============================================" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "   rey ..................... Start R.E.Y. Monitor" -ForegroundColor Gray
+            Write-Host "   rey health ............. Run fleet health check" -ForegroundColor Gray
+            Write-Host "   rey logs ............... View session logs" -ForegroundColor Gray
+            Write-Host "   rey deals .............. View OpenRouter deals" -ForegroundColor Gray
+            Write-Host "   rey override ........... Model override" -ForegroundColor Gray
+            Write-Host "   rey switch-provider .... Switch provider" -ForegroundColor Gray
+            Write-Host "   rey install ............ Install/upgrade swarm pack" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "  ===============================================" -ForegroundColor Cyan
+            Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
+            try { [Console]::ReadKey($true) | Out-Null } catch { }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'H') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
             $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
@@ -877,19 +1002,6 @@ try {
               try { [Console]::ReadKey($true) | Out-Null } catch { }
             }
             $script:lastHealthCheck = [DateTime]::Now
-            Refresh-Status
-            try { [Console]::Clear() } catch { Clear-Host }
-            try { [Console]::CursorVisible = $false } catch { }
-          }
-          if ($key.Key -eq 'S') {
-            try { [Console]::CursorVisible = $true } catch { }
-            try { [Console]::Clear() } catch { Clear-Host }
-            $setupScript = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'rey-setup.ps1' } else { Join-Path $HOME '.config\opencode\scripts\rey-setup.ps1' }
-            if (Test-Path -LiteralPath $setupScript) {
-              Write-Host "`n  Re-launching setup wizard..." -ForegroundColor Cyan
-              Start-Sleep -Seconds 1
-              & powershell -ExecutionPolicy Bypass -File "$setupScript"
-            }
             Refresh-Status
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
