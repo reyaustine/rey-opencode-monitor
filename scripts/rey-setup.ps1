@@ -214,6 +214,51 @@ function Show-KeyInput {
 }
 
 # ─────────────────────────────────────────────────────────────
+#  Function 3.5: Show-ModeSelection (Free vs Mixed filters)
+# ─────────────────────────────────────────────────────────────
+
+function Show-ModeSelection {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$selectedProviders
+    )
+
+    $cursorIdx = 0
+    $modes = @(
+        @{ Id = 'free_only'; Label = 'Free Model Focused'; Desc = 'Show only 100% free models (no paid)'; Icon = '🆓' }
+        @{ Id = 'mixed';     Label = 'Mixed (Free + Paid)'; Desc = 'Show both free and paid models';      Icon = '🔄' }
+    )
+
+    while ($true) {
+        try { [Console]::Clear() } catch { Clear-Host }
+
+        Write-Host ""
+        Write-Host "  ============================================================" -ForegroundColor Cyan
+        Write-Host "   R.E.Y. // BYOK SETUP — STEP 1.5 OF 2: MODEL FILTER MODE" -ForegroundColor Cyan
+        Write-Host "  ============================================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Providers selected: $($selectedProviders -join ', ')" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Use ↑/↓ to navigate, [Enter] to confirm:`n" -ForegroundColor Gray
+
+        for ($i = 0; $i -lt $modes.Count; $i++) {
+            $m = $modes[$i]
+            $arrow = if ($i -eq $cursorIdx) { '► ' } else { '  ' }
+            $color = if ($i -eq $cursorIdx) { 'Yellow' } else { 'White' }
+            Write-Host ("  {0}[{1}] {2} {3}  — {4}" -f $arrow, $m.Icon, $m.Label, $m.Id, $m.Desc) -ForegroundColor $color
+        }
+
+        Write-Host ""
+        $key = [Console]::ReadKey($true)
+        switch ($key.Key) {
+            'UpArrow' { if ($cursorIdx -gt 0) { $cursorIdx-- } }
+            'DownArrow' { if ($cursorIdx -lt ($modes.Count - 1)) { $cursorIdx++ } }
+            'Enter' { return $modes[$cursorIdx].Id }
+        }
+    }
+}
+
+# ─────────────────────────────────────────────────────────────
 #  Function 3: Save-EnvKeys
 # ─────────────────────────────────────────────────────────────
 
@@ -263,7 +308,153 @@ function Save-EnvKeys {
 }
 
 # ─────────────────────────────────────────────────────────────
-#  Function 4: Start-Setup  (main orchestration)
+#  Function 4: Show-TierSelection
+# ─────────────────────────────────────────────────────────────
+
+function Show-TierSelection {
+    [CmdletBinding()]
+    param()
+
+    $options = @(
+        @{ Id = 'free';  Label = 'Free Only';     Desc = 'Only free models — zero cost, unlimited usage'; Icon = '🆓' }
+        @{ Id = 'mixed'; Label = 'Mixed (Free + Paid)'; Desc = 'Both free and paid models — best quality across the board'; Icon = '💎' }
+    )
+
+    $cursorIdx = 0
+
+    while ($true) {
+        try { [Console]::Clear() } catch { Clear-Host }
+
+        Write-Host ""
+        Write-Host "  ============================================================" -ForegroundColor Cyan
+        Write-Host "   R.E.Y. // BYOK SETUP — STEP 2 OF 4: MODEL TIER"          -ForegroundColor Cyan
+        Write-Host "  ============================================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Choose which models to discover from your providers:" -ForegroundColor White
+        Write-Host ""
+
+        for ($i = 0; $i -lt $options.Count; $i++) {
+            $o = $options[$i]
+            $arrow = if ($i -eq $cursorIdx) { '►' } else { ' ' }
+            $color = if ($i -eq $cursorIdx) { 'Yellow' } else { 'White' }
+            Write-Host ("  {0}  {1} {2}  — {3}" -f $arrow, $o.Icon, $o.Label, $o.Desc) -ForegroundColor $color
+        }
+
+        Write-Host ""
+        Write-Host "  [↑/↓] Navigate   [Enter] Confirm" -ForegroundColor DarkGray
+        Write-Host ""
+
+        $key = [Console]::ReadKey($true)
+
+        switch ($key.Key) {
+            'UpArrow'   { if ($cursorIdx -gt 0) { $cursorIdx-- } }
+            'DownArrow' { if ($cursorIdx -lt ($options.Count - 1)) { $cursorIdx++ } }
+            'Enter'     { return $options[$cursorIdx].Id }
+        }
+    }
+}
+
+# ─────────────────────────────────────────────────────────────
+#  Function 5: Show-ModelDiscovery
+# ─────────────────────────────────────────────────────────────
+
+function Show-ModelDiscovery {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$tier
+    )
+
+    try { [Console]::Clear() } catch { Clear-Host }
+
+    Write-Host ""
+    Write-Host "  ============================================================" -ForegroundColor Cyan
+    Write-Host "   R.E.Y. // BYOK SETUP — STEP 3 OF 4: DISCOVERING MODELS" -ForegroundColor Cyan
+    Write-Host "  ============================================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Tier: $tier" -ForegroundColor Yellow
+    Write-Host "  Fetching live models from your selected providers..." -ForegroundColor White
+    Write-Host ""
+
+    # Call Python model discovery engine
+    $pyModels = Join-Path $scriptDir 'rey-models.py'
+    $liveData = $null
+
+    if (Test-Path -LiteralPath $pyModels) {
+        try {
+            $pyOut = & python "$pyModels" 2>$null
+            if ($pyOut) {
+                $jsonText = $pyOut -join "`n"
+                $liveData = $jsonText | ConvertFrom-Json
+            }
+        } catch {
+            Write-Host "  [WARN] Model discovery failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  [WARN] rey-models.py not found — skipping discovery" -ForegroundColor Yellow
+    }
+
+    if ($liveData -and $liveData.ok) {
+        $summary = $liveData.summary
+
+        # Draw model count table
+        Write-Host "  ┌──────────────────┬────────┬────────┬────────┐" -ForegroundColor DarkGray
+        Write-Host "  │ PROVIDER         │ TOTAL  │ FREE   │ PAID   │" -ForegroundColor DarkGray
+        Write-Host "  ├──────────────────┼────────┼────────┼────────┤" -ForegroundColor DarkGray
+
+        foreach ($pid in $liveData.providers.PSObject.Properties.Name) {
+            $p = $liveData.providers.$pid
+            $provLabel = switch ($pid) {
+                'openrouter' { 'OpenRouter' }
+                'groq'       { 'Groq' }
+                'gemini'     { 'Google Gemini' }
+                'claude'     { 'Anthropic Claude' }
+                'chatgpt'    { 'OpenAI ChatGPT' }
+                'opencode'   { 'OpenCode' }
+                'kilo'       { 'Kilo Code' }
+                default      { $pid }
+            }
+            $ok = if ($p.ok) { '' } else { ' [FAIL]' }
+            $total = if ($p.total -ne $null) { $p.total } else { 0 }
+            $free  = if ($p.free_count -ne $null) { $p.free_count } else { 0 }
+            $paid  = if ($p.paid_count -ne $null) { $p.paid_count } else { 0 }
+            $color = if ($p.ok) { 'White' } else { 'Red' }
+
+            Write-Host "  │ " -ForegroundColor DarkGray -NoNewline
+            Write-Host ("{0,-16}" -f "$provLabel$ok") -ForegroundColor $color -NoNewline
+            Write-Host " │ " -ForegroundColor DarkGray -NoNewline
+            Write-Host ("{0,6}" -f $total) -ForegroundColor White -NoNewline
+            Write-Host " │ " -ForegroundColor DarkGray -NoNewline
+            Write-Host ("{0,6}" -f $free) -ForegroundColor Green -NoNewline
+            Write-Host " │ " -ForegroundColor DarkGray -NoNewline
+            Write-Host ("{0,6}" -f $paid) -ForegroundColor Yellow -NoNewline
+            Write-Host " │" -ForegroundColor DarkGray
+        }
+
+        Write-Host "  └──────────────────┴────────┴────────┴────────┘" -ForegroundColor DarkGray
+        Write-Host ""
+        Write-Host "  Total: $($summary.total_after_filter) models available after $tier filter" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Save tier preference
+        $tierPath = Join-Path $confDir 'model-tier.json'
+        @{
+            tier       = $tier
+            updated_at = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+        } | ConvertTo-Json | Set-Content -Path $tierPath -Encoding UTF8
+    } else {
+        Write-Host "  [WARN] No models discovered. Roster will use fallback defaults." -ForegroundColor Yellow
+        if ($liveData -and $liveData.error) {
+            Write-Host "  Error: $($liveData.error)" -ForegroundColor Red
+        }
+    }
+
+    Write-Host "  Press any key to continue to API key entry..." -ForegroundColor DarkGray
+    [Console]::ReadKey($true) | Out-Null
+}
+
+# ─────────────────────────────────────────────────────────────
+#  Function 6: Start-Setup  (main orchestration)
 # ─────────────────────────────────────────────────────────────
 
 function Start-Setup {
@@ -288,7 +479,13 @@ function Start-Setup {
     # ── Step 1: provider selection ──
     $selectedIds = Show-ProviderSelection -providers $providers -defaultSelected $defaultSelected
 
-    # ── Step 2: key entry ──
+    # ── Step 2: model tier selection ──
+    $tier = Show-TierSelection
+
+    # ── Step 3: live model discovery ──
+    Show-ModelDiscovery -tier $tier
+
+    # ── Step 4: key entry ──
     $keys = Show-KeyInput -providers $providers -selectedIds $selectedIds
 
     # ── Save keys to .env ──

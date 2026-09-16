@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate optimal team roster assignments based on BYOK configuration."""
+"""
+R.E.Y. // Team Roster Generator
+Assigns optimal models to agent roles based on live-discovered models.
+Reads live-models.json (from rey-models.py) and picks the best model per role.
+"""
 
 import json
 import os
@@ -9,110 +13,160 @@ from pathlib import Path
 
 CONFIG_DIR = Path.home() / '.config' / 'opencode'
 BYOK_CONFIG = CONFIG_DIR / 'byok-config.json'
+LIVE_MODELS = CONFIG_DIR / 'live-models.json'
 
-ROSTER_RULES = {
-    'openrouter': {
-        'coder':     {'model': 'deepseek/deepseek-chat',            'reason': 'Best code generation value'},
-        'reviewer':  {'model': 'anthropic/claude-sonnet-4',         'reason': 'Thorough code review'},
-        'planner':   {'model': 'anthropic/claude-sonnet-4',         'reason': 'Strong architectural planning'},
-        'researcher':{'model': 'google/gemini-2.5-flash',           'reason': 'Fast research with large context'},
-        'debugger':  {'model': 'deepseek/deepseek-r1',              'reason': 'Chain-of-thought debugging'},
+# ── Role scoring rules ──────────────────────────────────────────────────────
+# Keywords that indicate a model is good for a specific role.
+# Score: higher = better fit. 0 = not a match.
+
+ROLE_KEYWORDS = {
+    'coder': {
+        'high': ['deepseek-chat', 'deepseek-coder', 'codestral', 'gpt-4.1', 'claude-sonnet', 'gemini-2.5-flash', 'llama-3.3-70b'],
+        'medium': ['gemini-2.5-pro', 'gpt-4o', 'claude-haiku', 'llama-3.1-8b'],
+        'low': ['kilo', 'opencode'],
     },
-    'groq': {
-        'coder':     {'model': 'llama-3.3-70b-versatile',          'reason': 'Fast code generation'},
-        'reviewer':  {'model': 'llama-3.3-70b-versatile',          'reason': 'Quick review cycles'},
-        'planner':   {'model': 'llama-3.3-70b-versatile',          'reason': 'Rapid planning iterations'},
-        'researcher':{'model': 'llama-3.1-8b-instant',             'reason': 'Blazing fast research'},
-        'debugger':  {'model': 'llama-3.3-70b-versatile',          'reason': 'Fast debugging loops'},
+    'reviewer': {
+        'high': ['claude-sonnet', 'o3', 'gemini-2.5-pro', 'deepseek-r1'],
+        'medium': ['gpt-4.1', 'llama-3.3-70b', 'gemini-2.5-flash'],
+        'low': ['kilo', 'opencode'],
     },
-    'gemini': {
-        'coder':     {'model': 'gemini-2.5-flash',                 'reason': 'Fast, capable coding'},
-        'reviewer':  {'model': 'gemini-2.5-pro',                   'reason': 'Deep review with large context'},
-        'planner':   {'model': 'gemini-2.5-pro',                   'reason': 'Strong planning with 1M context'},
-        'researcher':{'model': 'gemini-2.5-flash',                 'reason': 'Fast research, huge context window'},
-        'debugger':  {'model': 'gemini-2.5-flash',                 'reason': 'Quick debug iterations'},
+    'planner': {
+        'high': ['claude-opus', 'o3', 'gemini-2.5-pro'],
+        'medium': ['claude-sonnet', 'gpt-4.1', 'deepseek-chat'],
+        'low': ['kilo', 'opencode'],
     },
-    'claude': {
-        'coder':     {'model': 'claude-sonnet-4-20250514',         'reason': 'Best-in-class code generation'},
-        'reviewer':  {'model': 'claude-sonnet-4-20250514',         'reason': 'Thorough, nuanced review'},
-        'planner':   {'model': 'claude-opus-4-20250514',           'reason': 'Deep architectural thinking'},
-        'researcher':{'model': 'claude-sonnet-4-20250514',         'reason': 'Comprehensive research'},
-        'debugger':  {'model': 'claude-sonnet-4-20250514',         'reason': 'Systematic root cause analysis'},
+    'researcher': {
+        'high': ['gemini-2.5-flash', 'gpt-4.1-mini', 'llama-3.1-8b-instant'],
+        'medium': ['gemini-2.5-pro', 'claude-sonnet', 'deepseek-chat'],
+        'low': ['kilo', 'opencode'],
     },
-    'chatgpt': {
-        'coder':     {'model': 'gpt-4.1',                          'reason': 'Strong coding across languages'},
-        'reviewer':  {'model': 'o3',                                'reason': 'Reasoning-heavy review'},
-        'planner':   {'model': 'o3',                                'reason': 'Strategic planning'},
-        'researcher':{'model': 'gpt-4.1-mini',                     'reason': 'Fast, affordable research'},
-        'debugger':  {'model': 'o3',                                'reason': 'Deep reasoning for hard bugs'},
-    },
-    'opencode': {
-        'coder':     {'model': 'opencode/auto',                    'reason': 'Self-hosted, zero-latency local inference'},
-        'reviewer':  {'model': 'opencode/auto',                    'reason': 'Local code review, no API cost'},
-        'planner':   {'model': 'opencode/auto',                    'reason': 'Local planning, data stays on machine'},
-        'researcher':{'model': 'opencode/auto',                    'reason': 'Unlimited local research'},
-        'debugger':  {'model': 'opencode/auto',                    'reason': 'Local debugging, offline capable'},
-    },
-    'kilo': {
-        'coder':     {'model': 'kilo/auto',                        'reason': 'Free-tier AI coding agent'},
-        'reviewer':  {'model': 'kilo/auto',                        'reason': 'Fast review cycles'},
-        'planner':   {'model': 'kilo/auto',                        'reason': 'Rapid planning iterations'},
-        'researcher':{'model': 'kilo/auto',                        'reason': 'Free research assistant'},
-        'debugger':  {'model': 'kilo/auto',                        'reason': 'Free debugging agent'},
+    'debugger': {
+        'high': ['deepseek-r1', 'o3', 'claude-sonnet'],
+        'medium': ['gpt-4.1', 'gemini-2.5-flash', 'llama-3.3-70b'],
+        'low': ['kilo', 'opencode'],
     },
 }
 
-ROLE_PRIORITY = ['claude', 'chatgpt', 'openrouter', 'gemini', 'groq', 'opencode', 'kilo']
+# Provider priority (when multiple providers have equally good models)
+PROVIDER_PRIORITY = ['claude', 'chatgpt', 'openrouter', 'gemini', 'groq', 'opencode', 'kilo']
+
+ROLES = ['coder', 'reviewer', 'planner', 'researcher', 'debugger']
 
 
-def generate_roster(byok_config):
-    """Generate optimal roster assignments based on enabled providers."""
-    providers = byok_config.get('providers', {})
-    enabled = [
-        pid for pid, pval in providers.items()
-        if isinstance(pval, dict) and pval.get('enabled', False)
-    ]
+def score_model_for_role(model_id, role):
+    """Score a model for a given role based on keyword matching."""
+    model_lower = model_id.lower()
+    keywords = ROLE_KEYWORDS.get(role, {})
+
+    for kw in keywords.get('high', []):
+        if kw in model_lower:
+            return 100
+    for kw in keywords.get('medium', []):
+        if kw in model_lower:
+            return 50
+    for kw in keywords.get('low', []):
+        if kw in model_lower:
+            return 10
+
+    # Default: larger context = slightly better
+    return 5
+
+
+def generate_roster_from_live(live_models_data):
+    """Generate roster from live-discovered models."""
+    providers = live_models_data.get('providers', {})
+    enabled = [pid for pid, p in providers.items() if p.get('ok', False) and len(p.get('models', [])) > 0]
 
     if not enabled:
-        return {'error': 'No providers enabled', 'roster': {}}
+        return {'error': 'No providers have available models', 'roster': {}}
 
-    roles = ['coder', 'reviewer', 'planner', 'researcher', 'debugger']
     roster = {}
 
-    for role in roles:
-        assigned = False
-        for provider_id in ROLE_PRIORITY:
-            if provider_id in enabled and provider_id in ROSTER_RULES:
-                if role in ROSTER_RULES[provider_id]:
-                    roster[role] = {
-                        'provider': provider_id,
-                        'model': ROSTER_RULES[provider_id][role]['model'],
-                        'reason': ROSTER_RULES[provider_id][role]['reason'],
-                    }
-                    assigned = True
-                    break
+    for role in ROLES:
+        best_score = -1
+        best_model = None
+        best_provider = None
 
-        if not assigned:
-            # Fallback: use first enabled provider's model for this role
-            for provider_id in enabled:
-                if provider_id in ROSTER_RULES and role in ROSTER_RULES[provider_id]:
-                    roster[role] = {
-                        'provider': provider_id,
-                        'model': ROSTER_RULES[provider_id][role]['model'],
-                        'reason': ROSTER_RULES[provider_id][role]['reason'] + ' (fallback)',
-                    }
-                    assigned = True
-                    break
+        # Scan all enabled providers for the best model
+        for provider_id in PROVIDER_PRIORITY:
+            if provider_id not in enabled:
+                continue
 
-            if not assigned:
-                roster[role] = {'provider': '', 'model': '', 'reason': 'No provider available'}
+            prov_models = providers[provider_id].get('models', [])
+            for m in prov_models:
+                mid = m.get('id', '')
+                score = score_model_for_role(mid, role)
+
+                # Apply provider priority as tiebreaker
+                prov_idx = PROVIDER_PRIORITY.index(provider_id) if provider_id in PROVIDER_PRIORITY else 99
+                score += (10 - prov_idx)  # Higher priority provider gets small bonus
+
+                if score > best_score:
+                    best_score = score
+                    best_model = m
+                    best_provider = provider_id
+
+        if best_model:
+            # Determine why this model was chosen
+            reason = _get_role_reason(role, best_provider, best_model)
+            roster[role] = {
+                'provider': best_provider,
+                'model': best_model['id'],
+                'model_name': best_model.get('name', best_model['id']),
+                'context_length': best_model.get('context_length', 0),
+                'pricing': best_model.get('pricing', 'unknown'),
+                'reason': reason,
+            }
+        else:
+            roster[role] = {'provider': '', 'model': '', 'reason': 'No provider available'}
 
     return {
         'ok': True,
         'generated_at': datetime.now().isoformat(),
         'enabled_providers': enabled,
         'roster': roster,
+        'tier': live_models_data.get('tier', 'unknown'),
     }
+
+
+def _get_role_reason(role, provider, model):
+    """Generate a human-readable reason for the assignment."""
+    mid = model.get('id', '')
+    pricing = model.get('pricing', 'unknown')
+
+    reasons = {
+        'coder':      f'Best code generation fit from {provider}',
+        'reviewer':   f'Strong reasoning for code review from {provider}',
+        'planner':    f'Deep thinking for architecture from {provider}',
+        'researcher': f'Fast research capability from {provider}',
+        'debugger':   f'Systematic debugging from {provider}',
+    }
+    base = reasons.get(role, f'Optimal for {role}')
+    if pricing == 'free':
+        base += ' (free)'
+    return base
+
+
+def generate_roster(byok_config):
+    """Generate optimal roster assignments — tries live models first, falls back to static."""
+    # Try live models first
+    if LIVE_MODELS.exists():
+        try:
+            with open(LIVE_MODELS, 'r', encoding='utf-8') as f:
+                live_data = json.load(f)
+            if live_data.get('ok'):
+                return generate_roster_from_live(live_data)
+        except Exception:
+            pass
+
+    # Fallback: use BYOK config directly (no live models available)
+    providers = byok_config.get('providers', {})
+    enabled = [pid for pid, pval in providers.items() if isinstance(pval, dict) and pval.get('enabled', False)]
+
+    if not enabled:
+        return {'error': 'No providers enabled', 'roster': {}}
+
+    return {'error': 'No live models available — run model discovery first', 'roster': {}}
 
 
 if __name__ == '__main__':
