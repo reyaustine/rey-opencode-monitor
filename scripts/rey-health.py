@@ -54,7 +54,6 @@ BASE_ALLOWLIST = [
     "opencode/nemotron-3-ultra-free",
     "opencode/ling-3.0-flash-fin-free",
     "opencode/mimo-v2.5-free",
-    "deepseek/deepseek-r1-distill-qwen-1.5b",
     "lmstudio/deepseek-r1-distill-qwen-1.5b"
 ]
 
@@ -179,8 +178,10 @@ def check_openrouter_quota():
                 quota_info["is_rate_limited"] = True
         else:
             quota_info["status"] = f"HTTP_{e.code}"
-    except Exception:
-        quota_info["status"] = "OK"
+    except Exception as e:
+        quota_info["status"] = f"UNREACHABLE ({type(e).__name__})"
+        quota_info["ok"] = False
+        quota_info["error"] = str(e)
 
     quota_file = os.path.join(CONFIG_DIR, "openrouter-quota.json")
     try:
@@ -262,10 +263,18 @@ def run_health_check(quiet=False):
             except Exception:
                 pass
 
-    # 4. Check LM Studio LAN Gateway
+    # 4. Check LM Studio LAN Gateway (key from env or auth.json; optional)
+    lmstudio_key = os.environ.get("LMSTUDIO_API_KEY", "")
+    if not lmstudio_key and os.path.exists(AUTH_PATH):
+        try:
+            with open(AUTH_PATH, "r", encoding="utf-8-sig") as af:
+                lmstudio_key = json.load(af).get("lmstudio", {}).get("key", "")
+        except Exception:
+            pass
+    lmstudio_headers = {"Authorization": f"Bearer {lmstudio_key}"} if lmstudio_key else {}
     lmstudio_ok, lm_code, lat_lm, _ = ping_endpoint(
         "http://192.168.254.140:1234/v1/models",
-        headers={"Authorization": "Bearer sk-lm-Ab9ev0CX:Zft2eboj3Ml3GSQqjb46"},
+        headers=lmstudio_headers,
         timeout=3
     )
 
@@ -360,7 +369,7 @@ def run_health_check(quiet=False):
                 responsive.append(full_id)
             else:
                 unresponsive.append(full_id)
-        elif full_id.startswith("deepseek/") or full_id.startswith("lmstudio/"):
+        elif full_id.startswith("lmstudio/"):
             if lmstudio_ok:
                 responsive.append(full_id)
             else:

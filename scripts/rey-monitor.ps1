@@ -109,6 +109,10 @@ function Refresh-Status {
 
     if (Test-Path -LiteralPath $cfgJsonc) {
       $jsoncRaw = Get-Content -LiteralPath $cfgJsonc -Raw
+      if ([string]::IsNullOrWhiteSpace($jsoncRaw)) {
+        $ok = $false
+        Add-Log 'config parse FAILED: opencode.jsonc is empty'
+      }
       # Strip single-line comments for JSON parsing
       $cleanJson = $jsoncRaw -replace '(?m)^\s*//.*$', ''
       $cfgc = $cleanJson | ConvertFrom-Json
@@ -139,6 +143,9 @@ function Refresh-Status {
           }
         } catch { }
       }
+    } else {
+      $ok = $false
+      Add-Log 'config parse FAILED: opencode.jsonc missing'
     }
   } catch {
     $ok = $false
@@ -317,7 +324,7 @@ function Refresh-Status {
     $cfgPath = Join-Path $confDir 'opencode.jsonc'
     if (-not (Test-Path -LiteralPath $cfgPath)) {
       $diagLines += "opencode.jsonc MISSING"
-      $swarmCfg = Join-Path $scriptDir ".." "configs" "opencode.jsonc"
+      $swarmCfg = Join-Path (Join-Path $scriptDir '..') 'configs\opencode.jsonc'
       if (Test-Path -LiteralPath $swarmCfg) {
         try {
           Copy-Item -LiteralPath $swarmCfg -Destination $cfgPath -Force
@@ -327,9 +334,9 @@ function Refresh-Status {
           $diagLines += "AUTO-DEPLOY FAILED"
         }
       }
-    } elseif ((Get-Content -LiteralPath $cfgPath -Raw).Trim().Length -lt 10) {
+} elseif ([string]::IsNullOrWhiteSpace((Get-Content -LiteralPath $cfgPath -Raw))) {
       $diagLines += "opencode.jsonc EMPTY"
-      $swarmCfg = Join-Path $scriptDir ".." "configs" "opencode.jsonc"
+      $swarmCfg = Join-Path (Join-Path $scriptDir '..') 'configs\opencode.jsonc'
       if (Test-Path -LiteralPath $swarmCfg) {
         try {
           Copy-Item -LiteralPath $swarmCfg -Destination $cfgPath -Force
@@ -345,7 +352,7 @@ function Refresh-Status {
     $fbPath = Join-Path $confDir 'model-fallback.json'
     if (-not (Test-Path -LiteralPath $fbPath)) {
       $diagLines += "model-fallback.json MISSING"
-      $swarmFb = Join-Path $scriptDir ".." "configs" "model-fallback.json"
+      $swarmFb = Join-Path (Join-Path $scriptDir '..') 'configs\model-fallback.json'
       if (Test-Path -LiteralPath $swarmFb) {
         try {
           Copy-Item -LiteralPath $swarmFb -Destination $fbPath -Force
@@ -421,7 +428,7 @@ function Write-Row([int]$row, [string]$text, [string]$color) {
   }
 }
 
-function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$taskTitle, [bool]$healthOk, [bool]$punchActive, [int]$punchTick) {
+function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$taskTitle, [bool]$healthOk, [string]$healthStatus, [bool]$punchActive, [int]$punchTick) {
   $spinners = @('|', '/', '-', '\')
   $mouths   = @('▄  ', ' ▄ ', '  ▄', ' ▄ ')
 
@@ -483,8 +490,26 @@ function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$ta
   $glow = 'Yellow'; $mood = 'STANDBY'; $status = 'Standing by...'
 
   if (-not $healthOk) {
-    $ant = '☡'; $lb = '╲'; $rb = '╱'; $le = '✖'; $re = '✖'; $mth = '▃▃▃'
-    $glow = 'Red'; $mood = 'ALERT'; $status = 'Check error log!'
+    # Determine specific alert based on health status
+    if ($healthStatus -like '*UNRESPONSIVE*') {
+      $ant = '⚠'; $lb = '╲'; $rb = '╱'; $le = '!'; $re = '!'; $mth = '▃▃▃'
+      $glow = 'Yellow'; $mood = 'DEGRADED'; $status = 'Some models offline - check quota (Q)'
+    } elseif ($healthStatus -like '*RATE_LIMITED*' -or $healthStatus -like '*429*') {
+      $ant = '⚡'; $lb = '╲'; $rb = '╱'; $le = '!'; $re = '!'; $mth = '▃▃▃'
+      $glow = 'Red'; $mood = 'RATE LIMIT'; $status = 'Rate limited - press Q to switch providers'
+    } elseif ($healthStatus -like '*CHECKING*') {
+      $ant = '⚇'; $lb = '─'; $rb = '─'; $le = '◎'; $re = '◎'; $mth = $mouths[$frame % 4]
+      $glow = 'Cyan'; $mood = 'CHECKING'; $status = 'Running health check...'
+    } elseif ($healthStatus -like '*AUTO-REPAIRED*') {
+      $ant = '✓'; $lb = '─'; $rb = '─'; $le = '✓'; $re = '✓'; $mth = '───'
+      $glow = 'Green'; $mood = 'REPAIRED'; $status = 'Auto-repaired configs'
+    } elseif ($healthStatus -like '*CHECK LOG*') {
+      $ant = '☡'; $lb = '╲'; $rb = '╱'; $le = '✖'; $re = '✖'; $mth = '▃▃▃'
+      $glow = 'Red'; $mood = 'ALERT'; $status = 'Check error log (H for health)'
+    } else {
+      $ant = '☡'; $lb = '╲'; $rb = '╱'; $le = '✖'; $re = '✖'; $mth = '▃▃▃'
+      $glow = 'Red'; $mood = 'ALERT'; $status = 'Check error log!'
+    }
   } elseif ($working) {
     $tLow = ($taskTitle + '').ToLower()
     if ($tLow -match 'fix|bug|issue|error') {
@@ -678,7 +703,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (Q: quit | T: tokens | S: switch | L: logs | D: deals | O: override | H: health | ?: help)'); Color = 'DarkGray' }
+@{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | ?: help)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -713,7 +738,7 @@ function Draw([int]$frame, [bool]$working) {
     for ($idx = 0; $idx -lt 12; $idx++) {
       $rNum = 3 + $idx
       $item = $sysRows[$idx]
-      $robotObj = if ($curW -ge 95) { Get-RobotLine $idx $frame $working $activeTask $healthOk $script:punchActive $script:punchTick } else { $null }
+      $robotObj = if ($curW -ge 95) { Get-RobotLine $idx $frame $working $activeTask $healthOk $state.Health $script:punchActive $script:punchTick } else { $null }
       Write-SystemRow $rNum $item.Text $item.Color $robotObj
     }
 
@@ -835,15 +860,8 @@ try {
       try {
         if ([Console]::KeyAvailable) {
           $key = [Console]::ReadKey($true)
-          if ($key.Key -eq 'Q') { break }
-          if ($key.Key -eq 'T') {
-            if ($state.ViewMode -eq 'TOKENS') {
-              $state.ViewMode = 'FLEET'
-            } else {
-              $state.ViewMode = 'TOKENS'
-            }
-            try { [Console]::Clear() } catch { try { Clear-Host } catch { } }
-          }
+          if ($key.Key -eq 'X') { break }
+          if ($key.Key -eq 'Escape') { break }
           if ($key.Key -eq 'L') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
@@ -873,6 +891,32 @@ try {
             Refresh-Status
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'Q') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $pyQuota = Join-Path $scriptDir 'rey-quota.py'
+            if (-not (Test-Path $pyQuota)) {
+              $pyQuota = Join-Path $HOME '.config\opencode\scripts\rey-quota.py'
+            }
+            if (Test-Path $pyQuota) {
+              & python "$pyQuota"
+            }
+            Write-Host ""
+            Write-Host "  Press any key to return..." -ForegroundColor DarkGray
+            try { [Console]::ReadKey($true) | Out-Null } catch { }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'T') {
+            if ($state.ViewMode -eq 'TOKENS') {
+              $state.ViewMode = 'FLEET'
+            } else {
+              $state.ViewMode = 'TOKENS'
+            }
+            try { [Console]::Clear() } catch { try { Clear-Host } catch { } }
           }
           if ($key.Key -eq 'O') {
             try { [Console]::CursorVisible = $true } catch { }
@@ -926,7 +970,10 @@ try {
               Write-Host "  Switching to: $providerLabel" -ForegroundColor Yellow
               Write-Host "  ─────────────────────────────" -ForegroundColor DarkGray
 
-              $switchPs = Join-Path $confDir 'switch-provider.ps1'
+$switchPs = Join-Path $scriptDir 'switch-provider.ps1'
+              if (-not (Test-Path -LiteralPath $switchPs)) {
+                $switchPs = Join-Path $confDir 'switch-provider.ps1'
+              }
               if (-not (Test-Path -LiteralPath $switchPs)) {
                 $switchPs = Join-Path $HOME 'switch-provider.ps1'
               }
@@ -951,7 +998,7 @@ try {
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
-          if ($key.Key -eq 'Oem2' -and $key.KeyChar -eq '?') {
+if ($key.KeyChar -eq '?') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
             Write-Host ""
@@ -959,7 +1006,8 @@ try {
             Write-Host "   R.E.Y. CLI - HOTKEY REFERENCE" -ForegroundColor Cyan
             Write-Host "  ===============================================" -ForegroundColor Cyan
             Write-Host ""
-            Write-Host "   Q .............. Quit R.E.Y. Monitor" -ForegroundColor White
+            Write-Host "   X .............. Quit R.E.Y. Monitor" -ForegroundColor White
+            Write-Host "   Q .............. Check provider quota & rate limits" -ForegroundColor White
             Write-Host "   T .............. Toggle Token Fleet / Fleet view" -ForegroundColor White
             Write-Host "   S .............. Switch Provider (Kilo/OpenCode/OpenRouter)" -ForegroundColor White
             Write-Host "   L .............. View session logs" -ForegroundColor White
@@ -967,13 +1015,17 @@ try {
             Write-Host "   O .............. Model override (lock/rotation)" -ForegroundColor White
             Write-Host "   H .............. Fleet health watchdog" -ForegroundColor White
             Write-Host "   ? .............. This help screen" -ForegroundColor White
-            Write-Host ""
+
             Write-Host "  ===============================================" -ForegroundColor Cyan
             Write-Host "   CLI Commands (outside monitor):" -ForegroundColor Yellow
             Write-Host "  ===============================================" -ForegroundColor Yellow
             Write-Host ""
             Write-Host "   rey ..................... Start R.E.Y. Monitor" -ForegroundColor Gray
+            Write-Host "   rey status ............. One-line fleet status (--json for scripts)" -ForegroundColor Gray
             Write-Host "   rey health ............. Run fleet health check" -ForegroundColor Gray
+            Write-Host "   rey quota .............. Check provider quota & rate limits" -ForegroundColor Gray
+            Write-Host "   rey models ............. Browse live free models" -ForegroundColor Gray
+            Write-Host "   rey fix ................ Diagnose & auto-repair environment" -ForegroundColor Gray
             Write-Host "   rey logs ............... View session logs" -ForegroundColor Gray
             Write-Host "   rey deals .............. View OpenRouter deals" -ForegroundColor Gray
             Write-Host "   rey override ........... Model override" -ForegroundColor Gray

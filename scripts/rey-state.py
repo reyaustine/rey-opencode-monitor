@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import re
 import time
 import sqlite3
 from pathlib import Path
@@ -153,7 +154,7 @@ def apply_config_model(full_model_id):
             try:
                 with open(fpath, 'r', encoding='utf-8') as f:
                     content = f.read()
-                new_content = re.sub(r'("model"\s*:\s*)"[^"]+"', rf'\1"{full_model_id}"', content)
+                new_content = re.sub(r'("model"\s*:\s*)"[^"]+"', rf'\1"{full_model_id}"', content, count=1)
                 with open(fpath, 'w', encoding='utf-8') as f:
                     f.write(new_content)
             except Exception:

@@ -11,11 +11,11 @@ architect:
     - frontend-design
     - tailwind-design-system
     - web-design-guidelines
-    - quality-assurance-sentinel
+    - test-driven-development
     - verification-before-completion
     - systematic-debugging
     - performance
-    - review
+    - security-review
 
 coder:
   skills:
@@ -26,40 +26,40 @@ coder:
     - writing-plans
     - systematic-debugging
     - performance
-    - quality-assurance-sentinel
+    - test-driven-development
     - verification-before-completion
-    - review
+    - security-review
 
 reviewer:
   skills:
-    - review
+    - security-review
     - api-design-principles
     - frontend-design
     - tailwind-design-system
     - web-design-guidelines
-    - quality-assurance-sentinel
+    - test-driven-development
     - verification-before-completion
     - systematic-debugging
     - performance
 
 test_engineer:
   skills:
-    - tester
-    - quality-assurance-sentinel
+    - webapp-testing
+    - test-driven-development
     - verification-before-completion
     - systematic-debugging
     - api-design-principles
 
 explorer:
   skills:
-    - explain
+    - find-skills
     - brainstorming
     - api-design-principles
     - frontend-design
     - tailwind-design-system
     - web-design-guidelines
     - performance
-    - review
+    - security-review
 
 sme:
   skills:
@@ -68,13 +68,13 @@ sme:
     - tailwind-design-system
     - web-design-guidelines
     - performance
-    - quality-assurance-sentinel
+    - test-driven-development
     - systematic-debugging
 
 critic:
   skills:
-    - review
-    - quality-assurance-sentinel
+    - security-review
+    - test-driven-development
     - verification-before-completion
     - api-design-principles
     - frontend-design
@@ -87,4 +87,4 @@ docs:
     - api-design-principles
     - frontend-design
     - web-design-guidelines
-    - quality-assurance-sentinel
+    - test-driven-development

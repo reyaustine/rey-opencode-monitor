@@ -59,7 +59,7 @@ PAGE2_MODELS = {
     "T": ("opencode/muse-spark-1.3-contributor-free", "opencode", "OpenCode Muse Spark 1.3 Contributor (Free)"),
     "U": ("opencode/muse-spark-1.2-contributor-free", "opencode", "OpenCode Muse Spark 1.2 Contributor (Free)"),
     "V": ("opencode/muse-spark-1.3-free", "opencode", "OpenCode Muse Spark 1.3 Standard (Free)"),
-    "W": ("deepseek/deepseek-r1-distill-qwen-1.5b", "deepseek", "DeepSeek R1 Distill Qwen 1.5B (LM Studio)"),
+    "W": ("lmstudio/deepseek-r1-distill-qwen-1.5b", "lmstudio", "DeepSeek R1 Distill Qwen 1.5B (LM Studio)"),
     "X": ("lmstudio/qwen3.5-0.8b", "lmstudio", "Qwen 3.5 0.8B (LM Studio)"),
     "Y": ("openrouter/inclusionai/ling-3.0-flash-vl:free", "openrouter", "InclusionAI Ling 3.0 Flash VL (Free 262k)"),
     "Z": ("openrouter/thinkingmachines/inkling-small:free", "openrouter", "ThinkingMachines Inkling Small (Free 1M)")
@@ -158,9 +158,20 @@ def _apply_model_systemwide(full_model_id, verbose=True):
         dat_files = glob.glob(os.path.join(DESKTOP_DIR, "*.dat"))
         for fpath in dat_files:
             try:
-                with open(fpath, "r", encoding="utf-8") as f:
+                with open(fpath, "r", encoding="utf-8-sig") as f:
                     dcontent = f.read()
                 if "model-selection" in dcontent:
+                    # .dat files store inner JSON escaped (\") — handle both escaped and plain forms.
+                    dcontent = re.sub(
+                        r'\\"modelID\\":\\"[^"\\]+\\"',
+                        lambda m: '\\"modelID\\":\\"%s\\"' % raw_model_id,
+                        dcontent
+                    )
+                    dcontent = re.sub(
+                        r'\\"providerID\\":\\"[^"\\]+\\"',
+                        lambda m: '\\"providerID\\":\\"%s\\"' % provider_id,
+                        dcontent
+                    )
                     dcontent = re.sub(r'"modelID":"[^"]+"', f'"modelID":"{raw_model_id}"', dcontent)
                     dcontent = re.sub(r'"providerID":"[^"]+"', f'"providerID":"{provider_id}"', dcontent)
                     with open(fpath, "w", encoding="utf-8") as f:

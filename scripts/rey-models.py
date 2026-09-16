@@ -80,7 +80,7 @@ def get_api_key(provider):
     # Try .env first
     env_path = CONFIG_DIR / ".env"
     if env_path.exists():
-        with open(env_path, "r", encoding="utf-8") as f:
+        with open(env_path, "r", encoding="utf-8-sig") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
@@ -275,10 +275,13 @@ FETCHERS = {
 def main():
     # 1. Read BYOK config
     if not BYOK_CONFIG.exists():
-        print(json.dumps({"error": "byok-config.json not found — run setup first"}))
-        sys.exit(1)
+        if "--list" in sys.argv or "-l" in sys.argv:
+            print("  [!] byok-config.json not found - run 'rey setup' first to configure providers.")
+            sys.exit(0)
+        print(json.dumps({"ok": False, "error": "byok-config.json not found - run setup first"}))
+        sys.exit(0)
 
-    with open(BYOK_CONFIG, "r", encoding="utf-8") as f:
+    with open(BYOK_CONFIG, "r", encoding="utf-8-sig") as f:
         byok = json.load(f)
 
     enabled = [
@@ -294,7 +297,7 @@ def main():
     tier = "free"  # default
     if MODEL_TIER.exists():
         try:
-            with open(MODEL_TIER, "r", encoding="utf-8") as f:
+            with open(MODEL_TIER, "r", encoding="utf-8-sig") as f:
                 tier_data = json.load(f)
                 tier = tier_data.get("tier", "free")
         except Exception:
@@ -352,8 +355,51 @@ def main():
     with open(LIVE_MODELS, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2)
 
-    # 6. Print to stdout for PowerShell consumption
-    print(json.dumps(output, indent=2))
+# 6. Print output
+    if "--list" in sys.argv or "-l" in sys.argv:
+        print_list(output)
+    else:
+        print(json.dumps(output, indent=2))
+
+
+def print_list(output):
+    """User-friendly model browser display."""
+    CYAN = "\033[36m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    GRAY = "\033[90m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
+    s = output["summary"]
+    print(f"\n{CYAN}{'=' * 78}{RESET}")
+    print(f"  {BOLD}R.E.Y. // LIVE MODEL BROWSER{RESET}")
+    print(f"  Tier: {output['tier']}  |  Generated: {output['generated_at'][:19]}")
+    print(f"{CYAN}{'=' * 78}{RESET}")
+
+    for pid, p in output["providers"].items():
+        label = pid.upper()
+        if not p.get("ok"):
+            print(f"\n  {YELLOW}✖ {label}{RESET} - {p.get('error', 'unavailable')}")
+            continue
+        models = p.get("models", [])
+        print(f"\n  {GREEN}✓ {label}{RESET}  "
+              f"(total:{p.get('total', 0)} free:{p.get('free_count', 0)} "
+              f"paid:{p.get('paid_count', 0)} shown:{len(models)})")
+        for m in models[:25]:
+            mid = m.get("id", m) if isinstance(m, dict) else m
+            ctx = ""
+            if isinstance(m, dict) and m.get("context_length"):
+                cl = m["context_length"]
+                ctx = f"  ctx:{cl // 1000}k" if cl >= 1000 else f"  ctx:{cl}"
+            print(f"      {GRAY}•{RESET} {mid}{ctx}")
+        if len(models) > 25:
+            print(f"      {GRAY}... and {len(models) - 25} more{RESET}")
+
+    print(f"\n{CYAN}{'=' * 78}{RESET}")
+    print(f"  {BOLD}Summary:{RESET} {s['total_after_filter']} models shown "
+          f"({s['free_total']} free, {s['paid_total']} paid)")
+    print(f"{CYAN}{'=' * 78}{RESET}\n")
 
 
 if __name__ == "__main__":
