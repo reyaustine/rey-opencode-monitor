@@ -67,6 +67,8 @@ function Show-Roster {
     'gemini'     = 'Blue'
     'claude'     = 'Yellow'
     'chatgpt'    = 'Cyan'
+    'opencode'   = 'White'
+    'kilo'       = 'DarkYellow'
   }
 
   Write-Host ''

@@ -42,8 +42,12 @@ function Show-ProviderSelection {
         [Parameter(Mandatory)]
         [hashtable[]]$providers,
 
-        [string[]]$selected = @()
+        [string[]]$defaultSelected = @()
     )
+
+    # Initialize mutable selection from defaults
+    $selected = @()
+    foreach ($id in $defaultSelected) { $selected += $id }
 
     $cursorIndex = 0
 
@@ -267,16 +271,22 @@ function Start-Setup {
     param()
 
     # ── provider catalog ──
+    # OpenCode and Kilo Code are pre-selected by default (BYOK-optional, have free tiers)
     $providers = @(
-        @{ Id='openrouter'; Label='OpenRouter';    Desc='200+ models, free tier, unified gateway'; Icon='🌐'; KeyEnv='OPENROUTER_API_KEY'; KeyHint='sk-or-v1-...' }
-        @{ Id='groq';       Label='Groq';          Desc='Ultra-fast inference (Llama, Mixtral)';   Icon='⚡'; KeyEnv='GROQ_API_KEY';       KeyHint='gsk_...'     }
-        @{ Id='gemini';     Label='Google Gemini';  Desc='Gemini 2.5 Flash/Pro, generous free tier'; Icon='🔮'; KeyEnv='GEMINI_API_KEY';     KeyHint='AIza...'     }
-        @{ Id='claude';     Label='Anthropic Claude'; Desc='Claude Sonnet/Opus, best reasoning';     Icon='🧠'; KeyEnv='ANTHROPIC_API_KEY';  KeyHint='sk-ant-...'  }
-        @{ Id='chatgpt';    Label='OpenAI ChatGPT'; Desc='GPT-4o, o1, o3 models';                   Icon='🤖'; KeyEnv='OPENAI_API_KEY';     KeyHint='sk-...'      }
+        @{ Id='opencode';   Label='OpenCode';        Desc='Local-first AI IDE, self-hosted models';  Icon='🏗️'; KeyEnv='OPENCODE_API_KEY';   KeyHint='oc-...'      }
+        @{ Id='kilo';       Label='Kilo Code';       Desc='AI coding agent, free tier available';    Icon='🦾'; KeyEnv='KILO_API_KEY';      KeyHint='kl-...'      }
+        @{ Id='openrouter'; Label='OpenRouter';       Desc='200+ models, free tier, unified gateway'; Icon='🌐'; KeyEnv='OPENROUTER_API_KEY'; KeyHint='sk-or-v1-...' }
+        @{ Id='groq';       Label='Groq';             Desc='Ultra-fast inference (Llama, Mixtral)';   Icon='⚡'; KeyEnv='GROQ_API_KEY';       KeyHint='gsk_...'     }
+        @{ Id='gemini';     Label='Google Gemini';    Desc='Gemini 2.5 Flash/Pro, generous free tier'; Icon='🔮'; KeyEnv='GEMINI_API_KEY';     KeyHint='AIza...'     }
+        @{ Id='claude';     Label='Anthropic Claude'; Desc='Claude Sonnet/Opus, best reasoning';      Icon='🧠'; KeyEnv='ANTHROPIC_API_KEY';  KeyHint='sk-ant-...'  }
+        @{ Id='chatgpt';    Label='OpenAI ChatGPT';   Desc='GPT-4o, o1, o3 models';                   Icon='🤖'; KeyEnv='OPENAI_API_KEY';     KeyHint='sk-...'      }
     )
 
+    # Default selections: OpenCode and Kilo Code pre-checked
+    $defaultSelected = @('opencode', 'kilo')
+
     # ── Step 1: provider selection ──
-    $selectedIds = Show-ProviderSelection -providers $providers
+    $selectedIds = Show-ProviderSelection -providers $providers -defaultSelected $defaultSelected
 
     # ── Step 2: key entry ──
     $keys = Show-KeyInput -providers $providers -selectedIds $selectedIds

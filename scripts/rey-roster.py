@@ -46,9 +46,23 @@ ROSTER_RULES = {
         'researcher':{'model': 'gpt-4.1-mini',                     'reason': 'Fast, affordable research'},
         'debugger':  {'model': 'o3',                                'reason': 'Deep reasoning for hard bugs'},
     },
+    'opencode': {
+        'coder':     {'model': 'opencode/auto',                    'reason': 'Self-hosted, zero-latency local inference'},
+        'reviewer':  {'model': 'opencode/auto',                    'reason': 'Local code review, no API cost'},
+        'planner':   {'model': 'opencode/auto',                    'reason': 'Local planning, data stays on machine'},
+        'researcher':{'model': 'opencode/auto',                    'reason': 'Unlimited local research'},
+        'debugger':  {'model': 'opencode/auto',                    'reason': 'Local debugging, offline capable'},
+    },
+    'kilo': {
+        'coder':     {'model': 'kilo/auto',                        'reason': 'Free-tier AI coding agent'},
+        'reviewer':  {'model': 'kilo/auto',                        'reason': 'Fast review cycles'},
+        'planner':   {'model': 'kilo/auto',                        'reason': 'Rapid planning iterations'},
+        'researcher':{'model': 'kilo/auto',                        'reason': 'Free research assistant'},
+        'debugger':  {'model': 'kilo/auto',                        'reason': 'Free debugging agent'},
+    },
 }
 
-ROLE_PRIORITY = ['claude', 'chatgpt', 'openrouter', 'gemini', 'groq']
+ROLE_PRIORITY = ['claude', 'chatgpt', 'openrouter', 'gemini', 'groq', 'opencode', 'kilo']
 
 
 def generate_roster(byok_config):
