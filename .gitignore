@@ -31,6 +31,12 @@ scratch/
 *.sqlite
 *.sqlite3
 
+# BYOK setup and runtime telemetry (unique per machine, never commit)
+.setup-complete
+byok-config.json
+model-health.json
+openrouter-quota.json
+
 # OS metadata files
 .DS_Store
 Thumbs.db
