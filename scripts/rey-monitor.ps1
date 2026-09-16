@@ -978,6 +978,7 @@ try {
             Write-Host "   rey deals .............. View OpenRouter deals" -ForegroundColor Gray
             Write-Host "   rey override ........... Model override" -ForegroundColor Gray
             Write-Host "   rey switch-provider .... Switch provider" -ForegroundColor Gray
+            Write-Host "   rey deploy ............. Deploy swarm configs" -ForegroundColor Gray
             Write-Host "   rey install ............ Install/upgrade swarm pack" -ForegroundColor Gray
             Write-Host ""
             Write-Host "  ===============================================" -ForegroundColor Cyan
