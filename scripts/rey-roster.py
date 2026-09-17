@@ -72,13 +72,40 @@ def score_model_for_role(model_id, role):
     return 5
 
 
+def load_circuit_breaker():
+    """Load current quarantined models and providers."""
+    cb_path = CONFIG_DIR / 'circuit-breaker.json'
+    if cb_path.exists():
+        try:
+            with open(cb_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return {
+                    'models': set(data.get('quarantined_models', {}).keys()),
+                    'providers': set(data.get('quarantined_providers', {}).keys())
+                }
+        except Exception:
+            pass
+    return {'models': set(), 'providers': set()}
+
+
 def generate_roster_from_live(live_models_data):
-    """Generate roster from live-discovered models."""
+    """Generate roster from live-discovered models, excluding quarantined models and providers."""
+    cb = load_circuit_breaker()
+    quarantined_models = cb['models']
+    quarantined_providers = cb['providers']
+
     providers = live_models_data.get('providers', {})
-    enabled = [pid for pid, p in providers.items() if p.get('ok', False) and len(p.get('models', [])) > 0]
+    
+    # Filter enabled providers: exclude any provider in quarantined_providers
+    enabled = [
+        pid for pid, p in providers.items() 
+        if p.get('ok', False) 
+        and pid.lower() not in quarantined_providers
+        and len(p.get('models', [])) > 0
+    ]
 
     if not enabled:
-        return {'error': 'No providers have available models', 'roster': {}}
+        return {'error': 'No healthy providers available (all unconfigured or quarantined)', 'roster': {}}
 
     roster = {}
 
@@ -89,12 +116,19 @@ def generate_roster_from_live(live_models_data):
 
         # Scan all enabled providers for the best model
         for provider_id in PROVIDER_PRIORITY:
-            if provider_id not in enabled:
+            if provider_id not in enabled or provider_id.lower() in quarantined_providers:
                 continue
 
             prov_models = providers[provider_id].get('models', [])
             for m in prov_models:
                 mid = m.get('id', '')
+                full_mid = f"{provider_id}/{mid}" if "/" not in mid else mid
+                
+                # Exclude quarantined models!
+                # (User rule: exclude the model, but provider remains if other models work)
+                if mid in quarantined_models or full_mid in quarantined_models:
+                    continue
+
                 score = score_model_for_role(mid, role)
 
                 # Apply provider priority as tiebreaker
@@ -118,12 +152,14 @@ def generate_roster_from_live(live_models_data):
                 'reason': reason,
             }
         else:
-            roster[role] = {'provider': '', 'model': '', 'reason': 'No provider available'}
+            roster[role] = {'provider': '', 'model': '', 'reason': 'No healthy model available for role'}
 
     return {
         'ok': True,
         'generated_at': datetime.now().isoformat(),
         'enabled_providers': enabled,
+        'quarantined_models': list(quarantined_models),
+        'quarantined_providers': list(quarantined_providers),
         'roster': roster,
         'tier': live_models_data.get('tier', 'unknown'),
     }

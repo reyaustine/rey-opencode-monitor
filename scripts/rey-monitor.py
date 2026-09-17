@@ -81,7 +81,7 @@ def safe_sub(text, start, length):
         return ''
     return text[start:start + length]
 
-def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch_active=False, punch_tick=0, missing_keys=None):
+def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch_active=False, punch_tick=0, missing_keys=None, quarantined=False):
     spinners = ["|", "/", "-", "\\"]
     mouths = ["▄  ", " ▄ ", "  ▄", " ▄ "]
 
@@ -161,6 +161,13 @@ def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch
         mood = "NO KEY"
         first_k = missing_keys[0].upper()
         status_text = f"Missing {first_k}!"
+    elif quarantined:
+        ant, lb, rb = "🛡", "╲", "╱"
+        le, re = "✖", "✖"
+        mth = "━━━"
+        glow = MAGENTA
+        mood = "CIRCUIT"
+        status_text = "5+ errs! Blocked"
     elif not health_ok:
         ant, lb, rb, le, re, mth = "☡", "╲", "╱", "✖", "✖", "▃▃▃"
         glow, mood, status_text = RED, "ALERT", "Check error log!"
@@ -304,6 +311,9 @@ class ReyMonitor:
         self.view_mode = 'FLEET'  # 'FLEET' or 'TOKENS'
         self.missing_api_keys = []
         self.missing_providers = []
+        self.quarantined_models = []
+        self.quarantined_providers = []
+        self.last_circuit_check = 0
         self.last_logged_missing_keys = ''
 
         self.state = {
@@ -678,9 +688,26 @@ class ReyMonitor:
             cur_miss = ','.join(self.missing_api_keys)
             if cur_miss != self.last_logged_missing_keys:
                 self.add_log(f"[ALERT] Missing API key: {miss_str} - model calls will fail!")
-                self.last_logged_missing_keys = cur_miss
-        else:
-            self.last_logged_missing_keys = ''
+        # Check circuit breaker status
+        cb_path = os.path.join(conf_dir, 'circuit-breaker.json')
+        self.quarantined_models = []
+        self.quarantined_providers = []
+        if os.path.exists(cb_path):
+            try:
+                with open(cb_path, 'r', encoding='utf-8') as cbf:
+                    cb_data = json.load(cbf)
+                    self.quarantined_models = list(cb_data.get('quarantined_models', {}).keys())
+                    self.quarantined_providers = list(cb_data.get('quarantined_providers', {}).keys())
+            except Exception:
+                pass
+
+        if self.quarantined_providers or self.quarantined_models:
+            q_desc = []
+            if self.quarantined_providers:
+                q_desc.append(f"PROV:[{','.join(p.upper() for p in self.quarantined_providers)}]")
+            if self.quarantined_models:
+                q_desc.append(f"MODELS:[{len(self.quarantined_models)}]")
+            self.state['health'] = f"QUARANTINED {' '.join(q_desc)} (5+ ERRORS) | ROSTER HEALED"
 
         self.state['last_refresh'] = time.strftime('%H:%M:%S')
 
@@ -743,10 +770,15 @@ class ReyMonitor:
             return raw
 
         has_missing = bool(self.missing_api_keys)
+        has_quarantined = bool(self.quarantined_providers or self.quarantined_models)
         if has_missing:
             head_color = RED if frame % 2 == 0 else YELLOW
             tag = "[ ⚠️ NO API KEY! ]" if frame % 2 == 0 else "[ 🚨 MISSING KEY! ]"
             health_color = RED if frame % 2 == 0 else YELLOW
+        elif has_quarantined:
+            head_color = MAGENTA
+            tag = "[ 🛡️ QUARANTINE ]"
+            health_color = MAGENTA
 
         lines.append(row('  ' + '=' * 62, head_color))
         lines.append(row(f"   R.E.Y.  //  RUNTIME EXECUTION & YIELD MONITOR  {tag} [ {spin} ] [{bar}]", head_color))
@@ -756,6 +788,10 @@ class ReyMonitor:
                 lines.append(f"\033[41;97;1m  ⚠️  MISSING API KEY: [ {miss_str} ] - BLIND MODEL CALLS WILL FAIL!  \033[0m")
             else:
                 lines.append(f"\033[43;30;1m  🚨  ACTION REQUIRED: Set {miss_str} in ~/.config/opencode/.env!  \033[0m")
+        elif has_quarantined:
+            q_items = [p.upper() for p in self.quarantined_providers] + [m.split('/')[-1] for m in self.quarantined_models]
+            q_str = ', '.join(q_items[:4])
+            lines.append(f"\033[45;97;1m  🛡️  QUARANTINED (5+ ERRORS): [ {q_str} ] | ROSTER AUTO-HEALED  \033[0m")
         else:
             lines.append(row('  ' + '=' * 62, head_color))
 
@@ -814,7 +850,7 @@ class ReyMonitor:
             else:
                 self.punch_active = False
 
-            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok, elapsed_s, self.punch_active, self.punch_tick, missing_keys=self.missing_api_keys)
+            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok, elapsed_s, self.punch_active, self.punch_tick, missing_keys=self.missing_api_keys, quarantined=has_quarantined)
 
             for idx, (txt, col) in enumerate(sys_items):
                 left_part = (txt[:65]).ljust(65)

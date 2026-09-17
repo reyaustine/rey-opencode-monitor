@@ -48,6 +48,7 @@ node_modules/
 live-models.json
 openrouter-deals.json
 override-lock.json
+circuit-breaker.json
 *.dat
 *.Name
 

@@ -838,8 +838,22 @@ def interactive_show_hide_menu() -> None:
             input("  Press Enter to continue...")
 
 
+def get_circuit_breaker_status() -> Tuple[dict, dict]:
+    """Retrieve currently quarantined models and providers."""
+    cb_path = os.path.join(CONFIG_DIR, "circuit-breaker.json")
+    if os.path.exists(cb_path):
+        try:
+            with open(cb_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("quarantined_models", {}), data.get("quarantined_providers", {})
+        except Exception:
+            pass
+    return {}, {}
+
+
 def interactive_primary_secondary_wizard() -> None:
     """Step-by-step wizard to choose Primary and Secondary providers."""
+    q_mods, q_provs = get_circuit_breaker_status()
     print(f"\n  {CYAN}{'═' * 65}{RESET}")
     print(f"   {BOLD}🎯 PRIMARY & SECONDARY PROVIDER SETUP WIZARD{RESET}")
     print(f"  {CYAN}{'═' * 65}{RESET}\n")
@@ -851,7 +865,14 @@ def interactive_primary_secondary_wizard() -> None:
     for i, p in enumerate(prov_keys, 1):
         info = PROVIDERS_INFO[p]
         has_k, kn = check_provider_api_key(p)
-        k_tag = f" {GREEN}[KEY OK]{RESET}" if (has_k and kn) else (f" {GREEN}[ZERO-CONFIG]{RESET}" if has_k else f" {RED}{BOLD}[⚠️ NO KEY: {kn}]{RESET}")
+        if p.lower() in q_provs:
+            k_tag = f" {RED}{BOLD}[🚫 QUARANTINED - 5+ ERRORS]{RESET}"
+        elif has_k and kn:
+            k_tag = f" {GREEN}[KEY OK]{RESET}"
+        elif has_k:
+            k_tag = f" {GREEN}[ZERO-CONFIG]{RESET}"
+        else:
+            k_tag = f" {RED}{BOLD}[⚠️ NO KEY: {kn}]{RESET}"
         print(f"   [{i}] {info['name']:<18} - {info['desc']}{k_tag}")
     print(f"   [0] Cancel\n")
 
@@ -867,7 +888,14 @@ def interactive_primary_secondary_wizard() -> None:
     for i, p in enumerate(prov_keys, 1):
         info = PROVIDERS_INFO[p]
         has_k, kn = check_provider_api_key(p)
-        k_tag = f" {GREEN}[KEY OK]{RESET}" if (has_k and kn) else (f" {GREEN}[ZERO-CONFIG]{RESET}" if has_k else f" {RED}{BOLD}[⚠️ NO KEY: {kn}]{RESET}")
+        if p.lower() in q_provs:
+            k_tag = f" {RED}{BOLD}[🚫 QUARANTINED - 5+ ERRORS]{RESET}"
+        elif has_k and kn:
+            k_tag = f" {GREEN}[KEY OK]{RESET}"
+        elif has_k:
+            k_tag = f" {GREEN}[ZERO-CONFIG]{RESET}"
+        else:
+            k_tag = f" {RED}{BOLD}[⚠️ NO KEY: {kn}]{RESET}"
         tag = f" {YELLOW}(Current Primary){RESET}" if p == primary_selected else ""
         print(f"   [{i}] {info['name']:<18} - {info['desc']}{tag}{k_tag}")
     print(f"   [0] Cancel\n")
@@ -891,6 +919,7 @@ def interactive_main_menu() -> None:
         s = state["secondary"]
         p_name = PROVIDERS_INFO.get(p, {}).get("name", p)
         s_name = PROVIDERS_INFO.get(s, {}).get("name", s)
+        q_mods, q_provs = get_circuit_breaker_status()
 
         print(f"{CLEAR}")
         print(f"  {CYAN}{'═' * 65}{RESET}")
@@ -899,20 +928,34 @@ def interactive_main_menu() -> None:
         print(f"   Current Primary   : {GREEN}{BOLD}{p_name}{RESET} ({PROVIDERS_INFO.get(p, {}).get('primary_model', '-')})")
         print(f"   Current Secondary : {CYAN}{BOLD}{s_name}{RESET} ({PROVIDERS_INFO.get(s, {}).get('small_model', '-')})")
         print(f"   IDE Visibility    : {', '.join(state['enabled_providers'])}\n")
+        
+        if q_provs or q_mods:
+            q_items = [f"{k.upper()}" for k in q_provs.keys()] + [f"{m.split('/')[-1]}" for m in q_mods.keys()]
+            print(f"   {RED}{BOLD}⚠️  CIRCUIT BREAKER ACTIVE: {len(q_provs)} providers, {len(q_mods)} models quarantined{RESET}")
+            print(f"   {YELLOW}   Quarantined: {', '.join(q_items[:5])}{RESET}\n")
+
+        def p_badge(prov_key):
+            if prov_key.lower() in q_provs:
+                return f" {RED}{BOLD}[🚫 QUARANTINED]{RESET}"
+            return ""
+
         print(f"  {CYAN}{'─' * 65}{RESET}")
         print(f"   {BOLD}QUICK PRIMARY SWITCH:{RESET}")
-        print(f"   [1] Kilo Code       - kilo-auto/free zero-config")
-        print(f"   [2] OpenRouter      - gemma-4-31b-it:free & all free models")
-        print(f"   [3] OpenCode        - mimo-v2.5-free & big-pickle local")
-        print(f"   [4] Google Gemini   - gemini-2.5-flash 1M context")
+        print(f"   [1] Kilo Code       - kilo-auto/free zero-config{p_badge('kilo')}")
+        print(f"   [2] OpenRouter      - gemma-4-31b-it:free & all free models{p_badge('openrouter')}")
+        print(f"   [3] OpenCode        - mimo-v2.5-free & big-pickle local{p_badge('opencode')}")
+        print(f"   [4] Google Gemini   - gemini-2.5-flash 1M context{p_badge('gemini')}")
         print(f"\n   {BOLD}ADVANCED DUAL SETUP & IDE VISIBILITY:{RESET}")
         print(f"   [D] Dual Setup      - Configure Primary + Secondary pair")
         print(f"   [H] IDE Visibility  - Show / Hide models & providers in IDE dropdown")
         print(f"   [R] Refresh / Sync  - Re-sync all configurations and IDE files")
+        if q_provs or q_mods:
+            print(f"   [U] Unquarantine    - {GREEN}Reset circuit breakers & clear quarantined models{RESET}")
         print(f"   [0] Exit")
         print(f"  {CYAN}{'═' * 65}{RESET}\n")
 
-        choice = input("  Select option [0-4, D, H, R]: ").strip().upper()
+        prompt_str = "  Select option [0-4, D, H, R" + (", U" if (q_provs or q_mods) else "") + "]: "
+        choice = input(prompt_str).strip().upper()
 
         if choice == "0":
             break
@@ -938,6 +981,15 @@ def interactive_main_menu() -> None:
             interactive_show_hide_menu()
         elif choice == "R":
             apply_configuration(p, s)
+            input("  Press Enter to continue...")
+        elif choice == "U":
+            # Reset circuit breakers
+            cb_script = os.path.join(ROOT_DIR, "scripts", "rey-breaker.py")
+            if not os.path.exists(cb_script):
+                cb_script = os.path.join(CONFIG_DIR, "scripts", "rey-breaker.py")
+            import subprocess
+            subprocess.run([sys.executable, cb_script, "--reset", "all"])
+            print(f"\n  {GREEN}✓ Circuit breakers reset! All models and providers unquarantined.{RESET}")
             input("  Press Enter to continue...")
 
 

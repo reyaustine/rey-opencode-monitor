@@ -77,6 +77,8 @@ if (args.includes('--help') || args.includes('-h') || args.includes('-?') || cmd
   console.log('    fix, doctor      Run diagnostic checks & auto-repair configurations');
   console.log('    override         Lock or rotate IDE default model across all configs/DB/sessions');
   console.log('    roster           Auto-select specialized optimal models for subagent roles');
+  console.log('    breaker          Check or trigger circuit breaker & auto-quarantine (--status)');
+  console.log('    unblock          Reset circuit breakers & clear quarantined models/providers');
   console.log('    switch-provider  Switch primary provider (kilo | opencode | openrouter)');
   console.log('    deals            Browse active OpenRouter promotional discounted models');
   console.log('    logs             Stream & filter OpenCode runtime activity & fallback logs');
@@ -107,6 +109,16 @@ switch (cmd) {
 
   case 'roster':
     pyScript('rey-roster.py', rest)();
+    break;
+
+  case 'breaker':
+  case 'quarantine':
+    pyScript('rey-breaker.py', rest)();
+    break;
+
+  case 'unblock':
+  case 'reset-breaker':
+    pyScript('rey-breaker.py', ['--reset', ...(rest.length ? rest : ['all'])])();
     break;
 
   case 'health':

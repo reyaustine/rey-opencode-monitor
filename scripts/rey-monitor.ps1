@@ -588,7 +588,34 @@ function Refresh-Status {
     $script:lastLoggedMissingKeys = ''
   }
 
-  $state.LastRefresh = (Get-Date -Format 'HH:mm:ss')
+      # 6. Check Circuit Breaker Quarantined Models / Providers
+    $cbPath = Join-Path $confDir 'circuit-breaker.json'
+    $script:quarantinedModels = @()
+    $script:quarantinedProviders = @()
+    if (Test-Path -LiteralPath $cbPath) {
+      try {
+        $cbData = Get-Content -LiteralPath $cbPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($cbData.quarantined_models) {
+          $script:quarantinedModels = @($cbData.quarantined_models.PSObject.Properties.Name)
+        }
+        if ($cbData.quarantined_providers) {
+          $script:quarantinedProviders = @($cbData.quarantined_providers.PSObject.Properties.Name)
+        }
+      } catch { }
+    }
+
+    if (($script:quarantinedProviders.Count -gt 0 -or $script:quarantinedModels.Count -gt 0) -and $script:missingProviders.Count -eq 0) {
+      $qDesc = @()
+      if ($script:quarantinedProviders.Count -gt 0) {
+        $qDesc += ("PROV:[{0}]" -f ($script:quarantinedProviders -join ',').ToUpper())
+      }
+      if ($script:quarantinedModels.Count -gt 0) {
+        $qDesc += ("MODELS:[{0}]" -f $script:quarantinedModels.Count)
+      }
+      $state.Health = "QUARANTINED {0} (5+ ERRORS) | ROSTER HEALED" -f ($qDesc -join ' ')
+    }
+
+    $state.LastRefresh = (Get-Date -Format 'HH:mm:ss')
 }
 
 function Get-ConsoleSize {
@@ -712,6 +739,13 @@ function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$ta
     $glow = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
     $mood = 'NO KEY'
     $status = "Missing $($script:missingApiKeys[0])!"
+  } elseif ($script:quarantinedProviders.Count -gt 0 -or $script:quarantinedModels.Count -gt 0) {
+    $ant = '🛡'; $lb = '╲'; $rb = '╱'
+    $le = '✖'; $re = '✖'
+    $mth = '━━━'
+    $glow = 'Magenta'
+    $mood = 'CIRCUIT'
+    $status = '5+ errs! Quarantined'
   } elseif (-not $healthOk) {
     # Determine specific alert based on health status
     if ($healthStatus -like '*UNRESPONSIVE*') {
@@ -885,10 +919,15 @@ function Draw([int]$frame, [bool]$working) {
     $headColor   = if ($working) { 'Yellow' } else { 'Cyan' }
 
     $hasMissing = ($script:missingApiKeys.Count -gt 0)
+    $hasQuarantine = ($script:quarantinedProviders.Count -gt 0 -or $script:quarantinedModels.Count -gt 0)
     if ($hasMissing) {
       $healthColor = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
       $headColor   = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
       $tag         = if ($frame % 2 -eq 0) { '[ ⚠️ NO API KEY! ]' } else { '[ 🚨 MISSING KEY! ]' }
+    } elseif ($hasQuarantine) {
+      $healthColor = 'Magenta'
+      $headColor   = 'Magenta'
+      $tag         = '[ 🛡️ QUARANTINE ]'
     }
 
     Write-Row 0  '  ==============================================================' $headColor
@@ -901,6 +940,12 @@ function Draw([int]$frame, [bool]$working) {
       } else {
         Write-Row 2  ("  🚨  ACTION REQUIRED: Set $missStr in ~/.config/opencode/.env!  ") 'Black' 'Yellow'
       }
+    } elseif ($hasQuarantine) {
+      $qItems = @()
+      foreach ($p in $script:quarantinedProviders) { $qItems += $p.ToUpper() }
+      foreach ($m in $script:quarantinedModels) { $qItems += ($m -split '/')[-1] }
+      $qJoined = ($qItems | Select-Object -First 4) -join ', '
+      Write-Row 2  ("  🛡️  QUARANTINED (5+ ERRORS): [ $qJoined ] | ROSTER AUTO-HEALED  ") 'White' 'DarkMagenta'
     } else {
       Write-Row 2  '  ==============================================================' $headColor
     }
