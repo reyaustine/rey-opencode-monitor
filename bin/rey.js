@@ -84,6 +84,9 @@ if (args.includes('--help') || args.includes('-h') || args.includes('-?') || cmd
   console.log('    logs             Stream & filter OpenCode runtime activity & fallback logs');
   console.log('    deploy           Deploy configs, instructions, & commands into OpenCode');
   console.log('    verify           Run binary & runtime patch verification suite');
+  console.log('    update           Self-update via git pull or GitHub Packages (--check)');
+  console.log('    report           Cost & quota report from token-tracker (--json, --top)');
+  console.log('    cleanup          Prune stale .bak backups (--dry-run, --prune-keeps)');
   console.log('    install          Run system installer & dependencies setup');
   console.log('    (no command)     Launch the interactive real-time R.E.Y. HUD Terminal Monitor');
   console.log('');
@@ -169,6 +172,18 @@ switch (cmd) {
     pyScript('rey-switch.py', rest)();
     break;
 
+  case 'update':
+    pyScript('rey-update.py', rest)();
+    break;
+
+  case 'report':
+    pyScript('rey-report.py', rest)();
+    break;
+
+  case 'cleanup':
+    pyScript('rey-cleanup.py', rest)();
+    break;
+
   case 'deploy':
   case 'deploy-config':
     {
@@ -242,6 +257,7 @@ switch (cmd) {
       console.log('  Usage: rey [command]');
       console.log('    status | health | quota | models | fix | override | roster');
       console.log('    switch-provider | deals | logs | deploy | verify | install');
+      console.log('    update | report | cleanup');
       console.log('    (no command) -> start the R.E.Y. Monitor');
       console.log('');
       process.exit(1);

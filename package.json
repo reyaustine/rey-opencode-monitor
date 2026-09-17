@@ -26,7 +26,9 @@
   "scripts": {
     "start": "node bin/rey.js",
     "monitor": "node bin/rey.js",
-    "install-swarm": "node bin/rey.js --install"
+    "install-swarm": "node bin/rey.js --install",
+    "test": "pytest tests -q",
+    "test:verbose": "pytest tests -v"
   },
   "repository": {
     "type": "git",
