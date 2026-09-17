@@ -8,8 +8,10 @@
     Target provider: kilo, opencode, or openrouter
 #>
 param(
-    [Parameter(Mandatory=$false)]
-    [string]$Provider
+    [Parameter(Mandatory=$false, Position=0)]
+    [string]$Provider,
+    [Parameter(ValueFromRemainingArguments=$true)]
+    [string[]]$ExtraArgs
 )
 
 $pySwitch = if ($PSScriptRoot) { Join-Path $PSScriptRoot "rey-switch.py" } else { $null }
@@ -17,11 +19,10 @@ if (-not $pySwitch -or -not (Test-Path -LiteralPath $pySwitch)) {
     $pySwitch = Join-Path $HOME ".config\opencode\scripts\rey-switch.py"
 }
 if (Test-Path -LiteralPath $pySwitch) {
-    if ($Provider) {
-        & python "$pySwitch" $Provider
-    } else {
-        & python "$pySwitch"
-    }
+    $passArgs = @()
+    if ($Provider) { $passArgs += $Provider }
+    if ($ExtraArgs) { $passArgs += $ExtraArgs }
+    & python "$pySwitch" @passArgs
     exit $LASTEXITCODE
 }
 
