@@ -21,28 +21,28 @@ LIVE_MODELS = CONFIG_DIR / 'live-models.json'
 
 ROLE_KEYWORDS = {
     'coder': {
-        'high': ['deepseek-chat', 'deepseek-coder', 'codestral', 'gpt-4.1', 'claude-sonnet', 'gemini-2.5-flash', 'llama-3.3-70b'],
-        'medium': ['gemini-2.5-pro', 'gpt-4o', 'claude-haiku', 'llama-3.1-8b'],
+        'high': ['deepseek-chat', 'deepseek-coder', 'codestral', 'gpt-4.1', 'claude-sonnet', 'gemini-3.6-flash', 'llama-3.3-70b'],
+        'medium': ['gemini-3.1-flash-lite', 'gpt-4o', 'claude-haiku', 'llama-3.1-8b'],
         'low': ['kilo', 'opencode'],
     },
     'reviewer': {
-        'high': ['claude-sonnet', 'o3', 'gemini-2.5-pro', 'deepseek-r1'],
-        'medium': ['gpt-4.1', 'llama-3.3-70b', 'gemini-2.5-flash'],
+        'high': ['claude-sonnet', 'o3', 'gemini-3.6-flash', 'deepseek-r1'],
+        'medium': ['gpt-4.1', 'llama-3.3-70b', 'gemini-3.1-flash-lite'],
         'low': ['kilo', 'opencode'],
     },
     'planner': {
-        'high': ['claude-opus', 'o3', 'gemini-2.5-pro'],
+        'high': ['claude-opus', 'o3', 'gemini-3.6-flash'],
         'medium': ['claude-sonnet', 'gpt-4.1', 'deepseek-chat'],
         'low': ['kilo', 'opencode'],
     },
     'researcher': {
-        'high': ['gemini-2.5-flash', 'gpt-4.1-mini', 'llama-3.1-8b-instant'],
-        'medium': ['gemini-2.5-pro', 'claude-sonnet', 'deepseek-chat'],
+        'high': ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gpt-4.1-mini', 'llama-3.1-8b-instant'],
+        'medium': ['gemini-3.1-flash-lite', 'claude-sonnet', 'deepseek-chat'],
         'low': ['kilo', 'opencode'],
     },
     'debugger': {
         'high': ['deepseek-r1', 'o3', 'claude-sonnet'],
-        'medium': ['gpt-4.1', 'gemini-2.5-flash', 'llama-3.3-70b'],
+        'medium': ['gpt-4.1', 'gemini-3.6-flash', 'llama-3.3-70b'],
         'low': ['kilo', 'opencode'],
     },
 }

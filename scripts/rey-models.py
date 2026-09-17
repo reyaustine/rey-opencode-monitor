@@ -27,9 +27,13 @@ AUTH_PATH = HOME / ".local" / "share" / "opencode" / "auth.json"
 # ── Hardcoded model lists for providers without public APIs ──────────────────
 
 GEMINI_MODELS = [
-    {"id": "gemini-2.5-pro",        "name": "Gemini 2.5 Pro",        "context_length": 1048576, "pricing": "free"},
-    {"id": "gemini-2.5-flash",      "name": "Gemini 2.5 Flash",      "context_length": 1048576, "pricing": "free"},
-    {"id": "gemini-2.0-flash",      "name": "Gemini 2.0 Flash",      "context_length": 1048576, "pricing": "free"},
+    {"id": "gemini-3.6-flash",          "name": "Gemini 3.6 Flash",       "context_length": 1048576, "pricing": "free"},
+    {"id": "gemini-3.5-flash-lite",     "name": "Gemini 3.5 Flash-Lite",  "context_length": 1048576, "pricing": "free"},
+    {"id": "gemini-3.1-flash-lite",     "name": "Gemini 3.1 Flash-Lite",  "context_length": 1048576, "pricing": "free"},
+    {"id": "gemini-3-flash-preview",    "name": "Gemini 3 Flash Preview", "context_length": 1048576, "pricing": "free"},
+    {"id": "gemini-flash-lite-latest",  "name": "Gemini Flash-Lite Latest","context_length": 1048576, "pricing": "free"},
+    {"id": "gemini-flash-latest",       "name": "Gemini Flash Latest",    "context_length": 1048576, "pricing": "free"},
+    {"id": "gemma-4-26b-a4b-it",        "name": "Gemma 4 26B IT",         "context_length": 262144,  "pricing": "free"},
 ]
 
 CLAUDE_MODELS = [
@@ -177,7 +181,42 @@ def fetch_groq(tier):
 
 
 def fetch_gemini(tier):
-    """Return hardcoded Gemini models (no public list API)."""
+    """Fetch live Gemini models via API key if available, else curated list."""
+    key = get_api_key("gemini") or get_api_key("google") or os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+    if key:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+        ok, data, latency = fetch_json(url, timeout=5)
+        if ok and isinstance(data, dict) and "models" in data:
+            models = []
+            for m in data.get("models", []):
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" not in methods:
+                    continue
+                mid = m.get("name", "").replace("models/", "")
+                if "gemini-2.5" in mid:
+                    continue
+                if "interactions" in mid or "deep-research" in mid or "antigravity" in mid:
+                    continue
+                models.append({
+                    "id": mid,
+                    "name": m.get("displayName", mid),
+                    "context_length": m.get("inputTokenLimit", 1048576),
+                    "pricing": "free" if ("flash" in mid or "gemma" in mid) else "paid"
+                })
+            if models:
+                if tier == "free":
+                    models = [m for m in models if m["pricing"] == "free"]
+                free_count = sum(1 for m in models if m["pricing"] == "free")
+                paid_count = len(models) - free_count
+                return {
+                    "ok": True,
+                    "models": models,
+                    "total": len(models),
+                    "free_count": free_count,
+                    "paid_count": paid_count,
+                    "latency_ms": latency,
+                }
+
     models = list(GEMINI_MODELS)
     free_count = sum(1 for m in models if m["pricing"] == "free")
     paid_count = len(models) - free_count

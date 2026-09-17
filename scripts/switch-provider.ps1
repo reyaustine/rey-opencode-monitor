@@ -51,7 +51,7 @@ $agentModels = @{
         "explorer"     = "kilo/inclusionai/ling-3.0-flash-fin:free"
         "architect"    = "kilo/nvidia/nemotron-3-ultra-550b-a55b:free"
         "critic"       = "kilo/liquid/lfm-2.5-2.6b:free"
-        "researcher"   = "gemini/gemini-3.7-flash"
+        "researcher"   = "gemini/gemini-3.6-flash"
         "docs"         = "kilo/nex-agi/nex-n2.5-pro:free"
         "designer"     = "kilo/thinkingmachines/inkling-small:free"
     }
@@ -71,7 +71,7 @@ $agentModels = @{
         "explorer"     = "opencode/ling-3.0-flash-fin-free"
         "architect"    = "opencode/mimo-v2.5-free"
         "critic"       = "opencode/ling-3.0-flash-fin-free"
-        "researcher"   = "gemini/gemini-3.7-flash"
+        "researcher"   = "gemini/gemini-3.6-flash"
         "docs"         = "opencode/mimo-v2.5-free"
         "designer"     = "opencode/mimo-v2.5-free"
     }
@@ -91,7 +91,7 @@ $agentModels = @{
         "explorer"     = "openrouter/inclusionai/ling-3.0-flash-fin:free"
         "architect"    = "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
         "critic"       = "openrouter/liquid/lfm-2.5-2.6b:free"
-        "researcher"   = "gemini/gemini-3.7-flash"
+        "researcher"   = "gemini/gemini-3.6-flash"
         "docs"         = "openrouter/nex-agi/nex-n2.5-pro:free"
         "designer"     = "openrouter/thinkingmachines/inkling:free"
     }

@@ -150,19 +150,20 @@ PROVIDERS_INFO = {
     "gemini": {
         "name": "Google Gemini",
         "desc": "Google AI Studio 1M+ context free key",
-        "primary_model": "gemini/gemini-2.5-flash",
-        "small_model": "gemini/gemini-2.5-flash-lite",
-        "coder_model": "gemini/gemini-2.5-pro",
-        "plan_model": "gemini/gemini-2.5-pro",
-        "explore_model": "gemini/gemini-2.5-flash",
-        "qa_model": "gemini/gemini-2.5-flash",
-        "linter_model": "gemini/gemini-2.5-flash-lite",
-        "verifier_model": "gemini/gemini-2.5-pro",
-        "reviewer_model": "gemini/gemini-2.5-pro",
+        "primary_model": "gemini/gemini-3.6-flash",
+        "small_model": "gemini/gemini-3.1-flash-lite",
+        "coder_model": "gemini/gemini-3.6-flash",
+        "plan_model": "gemini/gemini-3.6-flash",
+        "explore_model": "gemini/gemini-3.6-flash",
+        "qa_model": "gemini/gemini-3.6-flash",
+        "linter_model": "gemini/gemini-3.1-flash-lite",
+        "verifier_model": "gemini/gemini-3.6-flash",
+        "reviewer_model": "gemini/gemini-3.6-flash",
         "fallback_models": [
-            "gemini/gemini-2.5-flash",
-            "gemini/gemini-2.5-pro",
-            "gemini/gemini-2.5-flash-lite"
+            "gemini/gemini-3.6-flash",
+            "gemini/gemini-3.1-flash-lite",
+            "gemini/gemini-3.5-flash-lite",
+            "gemini/gemini-3-flash-preview"
         ]
     },
     "mistral": {
@@ -558,7 +559,7 @@ def update_fallback_chains(primary_prov: str, secondary_prov: str) -> None:
     # 3. Universal safety nets (Mistral Codestral, Gemini Flash, OpenCode Pickle)
     safety = [
         "mistral/codestral-latest",
-        "gemini/gemini-2.5-flash",
+        "gemini/gemini-3.6-flash",
         "opencode/big-pickle",
         "kilo/kilo-auto/free",
         "openrouter/google/gemma-4-31b-it:free"
@@ -972,7 +973,7 @@ def interactive_main_menu() -> None:
         print(f"   [1] Kilo Code       - kilo-auto/free zero-config{p_badge('kilo')}")
         print(f"   [2] OpenRouter      - gemma-4-31b-it:free & all free models{p_badge('openrouter')}")
         print(f"   [3] OpenCode        - mimo-v2.5-free & big-pickle local{p_badge('opencode')}")
-        print(f"   [4] Google Gemini   - gemini-2.5-flash 1M context{p_badge('gemini')}")
+        print(f"   [4] Google Gemini   - gemini-3.6-flash 1M context{p_badge('gemini')}")
         print(f"\n   {BOLD}ADVANCED DUAL SETUP & IDE VISIBILITY:{RESET}")
         print(f"   [D] Dual Setup      - Configure Primary + Secondary pair")
         print(f"   [H] IDE Visibility  - Show / Hide models & providers in IDE dropdown")

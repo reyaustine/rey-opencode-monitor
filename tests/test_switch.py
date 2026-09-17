@@ -117,7 +117,7 @@ class TestFallbackChain:
 
     def test_fallback_chain_includes_safety_nets(self, rey_switch):
         safety = [
-            "mistral/codestral-latest", "gemini/gemini-2.5-flash",
+            "mistral/codestral-latest", "gemini/gemini-3.6-flash",
             "opencode/big-pickle", "kilo/kilo-auto/free",
             "openrouter/google/gemma-4-31b-it:free"
         ]

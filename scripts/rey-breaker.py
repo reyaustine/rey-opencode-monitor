@@ -60,7 +60,7 @@ DEFAULT_HEALTHY_FALLBACKS = {
         "kilo/cohere/north-mini-code:free",
         "openrouter/google/gemma-4-31b-it:free",
         "opencode/mimo-v2.5-free",
-        "gemini/gemini-2.5-flash"
+        "gemini/gemini-3.6-flash"
     ],
     "build": [
         "kilo/kilo-auto/free",
@@ -90,7 +90,7 @@ DEFAULT_HEALTHY_FALLBACKS = {
     "general": [
         "kilo/kilo-auto/free",
         "openrouter/google/gemma-4-31b-it:free",
-        "gemini/gemini-2.5-flash"
+        "gemini/gemini-3.6-flash"
     ]
 }
 
@@ -247,7 +247,7 @@ def auto_heal_roster(quarantined_models: dict, quarantined_providers: dict) -> L
                 "kilo/kilo-auto/free",
                 "openrouter/google/gemma-4-31b-it:free",
                 "opencode/mimo-v2.5-free",
-                "gemini/gemini-2.5-flash"
+                "gemini/gemini-3.6-flash"
             ]
             for cand in candidates:
                 cand_p = cand.split("/")[0].lower()

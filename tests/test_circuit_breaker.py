@@ -53,7 +53,7 @@ class TestCircuitBreaker(unittest.TestCase):
 
     def test_full_model_name(self):
         self.assertEqual(rey_breaker.full_model_name("openrouter", "google/gemma-4-31b-it:free"), "openrouter/google/gemma-4-31b-it:free")
-        self.assertEqual(rey_breaker.full_model_name("gemini", "gemini-2.5-flash"), "gemini/gemini-2.5-flash")
+        self.assertEqual(rey_breaker.full_model_name("gemini", "gemini-3.6-flash"), "gemini/gemini-3.6-flash")
         self.assertEqual(rey_breaker.full_model_name("kilo", ""), "kilo")
 
     def test_model_quarantine_preserves_healthy_provider(self):
@@ -143,8 +143,8 @@ class TestCircuitBreaker(unittest.TestCase):
                 "gemini": {
                     "ok": True,
                     "models": [
-                        {"id": "gemini-2.5-flash", "pricing": "free", "context_length": 1000000},
-                        {"id": "gemini-2.5-pro", "pricing": "free", "context_length": 1000000}
+                        {"id": "gemini-3.6-flash", "pricing": "free", "context_length": 1000000},
+                        {"id": "gemini-3.1-flash-lite", "pricing": "free", "context_length": 1000000}
                     ]
                 },
                 "kilo": {
@@ -160,12 +160,12 @@ class TestCircuitBreaker(unittest.TestCase):
         orig_load = rey_roster.load_circuit_breaker
         try:
             rey_roster.load_circuit_breaker = lambda: {
-                "models": {"gemini-2.5-flash", "gemini/gemini-2.5-flash"},
+                "models": {"gemini-3.6-flash", "gemini/gemini-3.6-flash"},
                 "providers": set()
             }
             roster_res = rey_roster.generate_roster_from_live(live_models)
             self.assertTrue(roster_res["ok"])
-            self.assertNotEqual(roster_res["roster"]["coder"]["model"], "gemini-2.5-flash")
+            self.assertNotEqual(roster_res["roster"]["coder"]["model"], "gemini-3.6-flash")
             self.assertIn("gemini", roster_res["enabled_providers"])
 
             # Case 2: Provider quarantined -> entire provider removed from roster
