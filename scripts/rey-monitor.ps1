@@ -754,7 +754,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | W: whitelist | ?: help)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | M: models | W: whitelist | ?: help)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -1042,7 +1042,8 @@ try {
             Write-Host "   D .............. View OpenRouter deals" -ForegroundColor White
             Write-Host "   O .............. Model override (lock/rotation)" -ForegroundColor White
             Write-Host "   H .............. Fleet health watchdog" -ForegroundColor White
-            Write-Host "   W .............. Auto-whitelist discovered free models" -ForegroundColor White
+            Write-Host "   M .............. Browse live free models across providers" -ForegroundColor White
+            Write-Host "   W / A .......... Auto-whitelist discovered free models" -ForegroundColor White
             Write-Host "   ? .............. This help screen" -ForegroundColor White
 
             Write-Host "  ===============================================" -ForegroundColor Cyan
@@ -1085,7 +1086,21 @@ try {
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
-          if ($key.Key -eq 'W') {
+          if ($key.Key -eq 'M') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $pyModels = Get-ReyScript 'rey-models.py'
+            if ($pyModels -and (Test-Path -LiteralPath $pyModels)) {
+              & python "$pyModels" "--list"
+              Write-Host ""
+              Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
+              try { [Console]::ReadKey($true) | Out-Null } catch { }
+            }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'W' -or $key.Key -eq 'A') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
             $pyHealth = Get-ReyScript 'rey-health.py'
