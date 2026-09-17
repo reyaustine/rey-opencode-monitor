@@ -57,6 +57,38 @@ BASE_ALLOWLIST = [
     "lmstudio/deepseek-r1-distill-qwen-1.5b"
 ]
 
+BUDGET_WARNING_PERCENT = 25.0
+BUDGET_CRITICAL_PERCENT = 10.0
+
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def classify_budget(remaining, limit):
+    remaining = safe_float(remaining)
+    limit = safe_float(limit)
+    if limit <= 0:
+        return "UNKNOWN", 0.0
+    percent = max(0.0, min(100.0, (remaining / limit) * 100.0))
+    if remaining <= 0:
+        return "DEPLETED", percent
+    if percent <= BUDGET_CRITICAL_PERCENT:
+        return "CRITICAL", percent
+    if percent <= BUDGET_WARNING_PERCENT:
+        return "LOW", percent
+    return "OK", percent
+
 def ping_endpoint(url, headers=None, timeout=6):
     """Pings an HTTP endpoint and measures latency."""
     if headers is None:
@@ -101,17 +133,28 @@ def check_openrouter_quota():
         "ok": False,
         "status": "UNKNOWN",
         "label": "unknown",
+        "credit_limit": 0.0,
+        "credits_remaining": 0.0,
+        "credit_percent_remaining": 0.0,
+        "budget_status": "UNKNOWN",
+        "budget_ok": False,
+        "budget_usable": False,
         "free_limit": 50,
         "free_remaining": 50,
-        "credits_remaining": 0.0,
+        "free_used": 0,
+        "free_quota_known": False,
+        "free_probe_status": "NOT_CHECKED",
         "usage_daily": 0.0,
+        "usage_weekly": 0.0,
+        "usage_monthly": 0.0,
         "is_rate_limited": False,
         "reset_time": "N/A",
         "hours_left": 0.0,
-        "message": ""
+        "message": "",
+        "last_checked": ""
     }
-    key = ""
-    if os.path.exists(AUTH_PATH):
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key and os.path.exists(AUTH_PATH):
         try:
             with open(AUTH_PATH, "r", encoding="utf-8") as f:
                 key = json.load(f).get("openrouter", {}).get("key", "")
@@ -125,10 +168,34 @@ def check_openrouter_quota():
         req = urllib.request.Request("https://openrouter.ai/api/v1/auth/key", headers={"Authorization": f"Bearer {key}", "User-Agent": "REY-Quota-Monitor/1.0"})
         with urllib.request.urlopen(req, timeout=5) as r:
             kdata = json.loads(r.read().decode())["data"]
+            limit = safe_float(kdata.get("limit", 0))
+            remaining = safe_float(kdata.get("limit_remaining", 0))
+            free_data = kdata.get("free_model_daily_requests") or {}
+            budget_status, percent = classify_budget(remaining, limit)
+            budget_labels = {
+                "OK": "CREDIT_OK",
+                "LOW": "LOW_CREDIT",
+                "CRITICAL": "CRITICAL_CREDIT",
+                "DEPLETED": "CREDIT_DEPLETED",
+                "UNKNOWN": "CREDIT_UNKNOWN"
+            }
             quota_info["ok"] = True
             quota_info["label"] = kdata.get("label", "")
-            quota_info["credits_remaining"] = round(kdata.get("limit_remaining", 0), 4)
-            quota_info["usage_daily"] = round(kdata.get("usage_daily", 0), 4)
+            quota_info["credit_limit"] = round(limit, 4)
+            quota_info["credits_remaining"] = round(remaining, 4)
+            quota_info["credit_percent_remaining"] = round(percent, 1)
+            quota_info["budget_status"] = budget_status
+            quota_info["budget_ok"] = budget_status == "OK"
+            quota_info["budget_usable"] = budget_status in ("OK", "LOW")
+            quota_info["status"] = budget_labels.get(budget_status, "CREDIT_UNKNOWN")
+            quota_info["free_limit"] = safe_int(free_data.get("limit"), quota_info["free_limit"])
+            quota_info["free_remaining"] = safe_int(free_data.get("remaining"), quota_info["free_remaining"])
+            quota_info["free_used"] = safe_int(free_data.get("used"), 0)
+            quota_info["free_quota_known"] = bool(free_data)
+            quota_info["usage_daily"] = round(safe_float(kdata.get("usage_daily"), 0), 4)
+            quota_info["usage_weekly"] = round(safe_float(kdata.get("usage_weekly"), 0), 4)
+            quota_info["usage_monthly"] = round(safe_float(kdata.get("usage_monthly"), 0), 4)
+            quota_info["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
         quota_info["error"] = str(e)
 
@@ -150,18 +217,18 @@ def check_openrouter_quota():
             }).encode()
         )
         with urllib.request.urlopen(req2, timeout=4) as r2:
-            quota_info["status"] = "HEALTHY"
+            quota_info["free_probe_status"] = "OK"
             quota_info["is_rate_limited"] = False
-            quota_info["free_remaining"] = 50
     except urllib.error.HTTPError as e:
+        quota_info["free_probe_status"] = f"HTTP_{e.code}"
         if e.code == 429:
             try:
                 body = json.loads(e.read().decode())
                 meta = body.get("error", {}).get("metadata", {})
                 headers = meta.get("headers", {})
-                reset_ms = int(headers.get("X-RateLimit-Reset", 0))
-                rem = int(headers.get("X-RateLimit-Remaining", 0))
-                limit = int(headers.get("X-RateLimit-Limit", 50))
+                reset_ms = safe_int(headers.get("X-RateLimit-Reset"), 0)
+                rem = safe_int(headers.get("X-RateLimit-Remaining"), 0)
+                limit = safe_int(headers.get("X-RateLimit-Limit"), quota_info["free_limit"])
                 
                 reset_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(reset_ms / 1000)) if reset_ms else "Unknown"
                 hours_left = round((reset_ms / 1000 - time.time()) / 3600, 1) if reset_ms else 0
@@ -170,17 +237,15 @@ def check_openrouter_quota():
                 quota_info["is_rate_limited"] = True
                 quota_info["free_limit"] = limit
                 quota_info["free_remaining"] = rem
+                quota_info["free_quota_known"] = True
                 quota_info["reset_time"] = reset_time
                 quota_info["hours_left"] = hours_left
                 quota_info["message"] = body.get("error", {}).get("message", "Rate limit exceeded")
             except Exception:
                 quota_info["status"] = "RATE_LIMITED_429"
                 quota_info["is_rate_limited"] = True
-        else:
-            quota_info["status"] = f"HTTP_{e.code}"
     except Exception as e:
-        quota_info["status"] = f"UNREACHABLE ({type(e).__name__})"
-        quota_info["ok"] = False
+        quota_info["free_probe_status"] = f"UNREACHABLE ({type(e).__name__})"
         quota_info["error"] = str(e)
 
     quota_file = os.path.join(CONFIG_DIR, "openrouter-quota.json")
@@ -422,9 +487,10 @@ def run_health_check(quiet=False):
             pass
 
     quota_info = check_openrouter_quota()
+    budget_status = quota_info.get("budget_status", "UNKNOWN")
 
     duration_ms = int((time.time() - start_time) * 1000)
-    if quota_info.get("is_rate_limited"):
+    if quota_info.get("is_rate_limited") or budget_status in ("LOW", "CRITICAL", "DEPLETED"):
         overall_status = "DEGRADED"
     else:
         overall_status = "HEALTHY" if len(unresponsive) == 0 else "DEGRADED"
@@ -435,6 +501,12 @@ def run_health_check(quiet=False):
     )
     if quota_info.get("is_rate_limited"):
         summary_text += f" [OPENROUTER 429 LIMITED - resets in {quota_info.get('hours_left')}h]"
+    elif budget_status == "DEPLETED":
+        summary_text += f" [OPENROUTER CREDIT DEPLETED - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
+    elif budget_status == "CRITICAL":
+        summary_text += f" [OPENROUTER CREDIT CRITICAL - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
+    elif budget_status == "LOW":
+        summary_text += f" [OPENROUTER CREDIT LOW - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
 
     result_data = {
         "running": False,
@@ -472,15 +544,26 @@ def run_health_check(quiet=False):
 
     # CLI Output Rendering
     if not quiet:
+        free_rem = quota_info.get("free_remaining", "?") if quota_info.get("free_quota_known") else "?"
+        free_lim = quota_info.get("free_limit", "?") if quota_info.get("free_quota_known") else "?"
+        credits = safe_float(quota_info.get("credits_remaining"), 0)
+        credit_limit = safe_float(quota_info.get("credit_limit"), 0)
+        percent = safe_float(quota_info.get("credit_percent_remaining"), 0)
+        daily = safe_float(quota_info.get("usage_daily"), 0)
         print("\n OpenRouter Rate Limit & Quota Monitor:")
         if quota_info.get("is_rate_limited"):
-            print(f"  {RED}[429 RATE LIMITED]{RESET} Free Tier Models Quota Exhausted! (0/{quota_info.get('free_limit', 50)} requests remaining)")
+            print(f"  {RED}[429 RATE LIMITED]{RESET} Free-tier probe blocked ({free_rem}/{free_lim} remaining)")
             print(f"  {YELLOW}• Daily Reset Time  :{RESET} {quota_info.get('reset_time')} ({quota_info.get('hours_left')} hours remaining)")
-            print(f"  {YELLOW}• Paid Credit Balance:{RESET} ${quota_info.get('credits_remaining', 0)} (Paid models are unaffected by free quota)")
+            print(f"  {YELLOW}• Paid Credit Balance:{RESET} ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
             print(f"  {CYAN}• Auto-Defense Engaged:{RESET} OpenCode & Mistral fallback models active so subagents continue without canceling!")
-            print(f"  {GRAY}• Tip                : Adding $5 credit to OpenRouter permanently unlocks 1,000 free requests/day.{RESET}")
+        elif budget_status == "DEPLETED":
+            print(f"  {RED}[CREDIT DEPLETED]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%)")
+        elif budget_status == "CRITICAL":
+            print(f"  {YELLOW}[CRITICAL CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
+        elif budget_status == "LOW":
+            print(f"  {YELLOW}[LOW CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
         else:
-            print(f"  {GREEN}[HEALTHY]{RESET} Free tier models active ({quota_info.get('free_remaining', 50)}/50 remaining). Balance: ${quota_info.get('credits_remaining', 0)}")
+            print(f"  {GREEN}[CREDIT OK]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
 
         print("\n Provider Gateways:")
         print(f"  [{'✓' if openrouter_ok else '✖'}] OpenRouter API    - {'200 OK' if openrouter_ok else 'FAIL'} ({lat_or}ms)")
@@ -533,6 +616,340 @@ def run_health_check(quiet=False):
 
     return result_data
 
+def auto_whitelist_new_models():
+    """
+    Automatically adds newly discovered free models to opencode.json whitelists.
+    Returns (added_count, added_models) tuple.
+    """
+    health_data = {}
+    if os.path.exists(HEALTH_FILE):
+        try:
+            with open(HEALTH_FILE, "r", encoding="utf-8") as f:
+                health_data = json.load(f)
+        except Exception:
+            return 0, []
+
+    new_models = health_data.get("new_free_models_detail", [])
+    if not new_models:
+        return 0, []
+
+    # Read current config
+    config_path = CONFIG_JSONC if os.path.exists(CONFIG_JSONC) else CONFIG_JSON
+    if not os.path.exists(config_path):
+        return 0, []
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            if config_path.endswith(".jsonc"):
+                lines = [l for l in f if not l.strip().startswith("//")]
+                config = json.loads("\n".join(lines))
+            else:
+                config = json.load(f)
+    except Exception:
+        return 0, []
+
+    if "provider" not in config:
+        config["provider"] = {}
+
+    added_models = []
+    for nm in new_models:
+        raw_id = nm.get("raw_id", "")
+        if not raw_id or raw_id.startswith("google/lyria"):
+            continue
+
+        # Determine provider from model ID
+        # OpenRouter models: "provider/model-name:free"
+        parts = raw_id.split("/")
+        if len(parts) < 2:
+            continue
+
+        provider_name = parts[0]
+        model_name = "/".join(parts[1:])
+
+        # Ensure provider section exists
+        if provider_name not in config["provider"]:
+            config["provider"][provider_name] = {"whitelist": []}
+
+        if "whitelist" not in config["provider"][provider_name]:
+            config["provider"][provider_name]["whitelist"] = []
+
+        # Check if already whitelisted
+        current_whitelist = config["provider"][provider_name]["whitelist"]
+        if model_name not in current_whitelist and raw_id not in current_whitelist:
+            current_whitelist.append(model_name)
+            added_models.append(f"{provider_name}/{model_name}")
+
+    if added_models:
+        # Write back to config
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+        except Exception:
+            return 0, []
+
+        # Also update model-fallback.json
+        _update_fallback_models(added_models)
+
+    return len(added_models), added_models
+
+
+def _update_fallback_models(new_model_ids):
+    """Adds new models to model-fallback.json agent lists."""
+    fallback_path = os.path.join(CONFIG_DIR, "model-fallback.json")
+    if not os.path.exists(fallback_path):
+        return
+
+    try:
+        with open(fallback_path, "r", encoding="utf-8") as f:
+            fallback = json.load(f)
+    except Exception:
+        return
+
+    if "agents" not in fallback:
+        return
+
+    # Convert full model IDs to kilo/openrouter format for fallback
+    kilo_models = []
+    for mid in new_model_ids:
+        # Extract the model part for kilo gateway
+        if "/" in mid:
+            parts = mid.split("/", 1)
+            if len(parts) > 1:
+                kilo_models.append(f"kilo/{parts[1]}")
+
+    if not kilo_models:
+        return
+
+    # Add to all agent fallback lists (avoid duplicates)
+    for agent_key, agent_val in fallback.get("agents", {}).items():
+        if isinstance(agent_val, dict) and "fallbackModels" in agent_val:
+            for m in kilo_models:
+                if m not in agent_val["fallbackModels"]:
+                    agent_val["fallbackModels"].append(m)
+
+    try:
+        with open(fallback_path, "w", encoding="utf-8") as f:
+            json.dump(fallback, f, indent=2)
+    except Exception:
+        pass
+
+
+def get_all_provider_models():
+    """
+    Fetches ALL models from all configured providers (free + paid).
+    Returns a dict with provider name -> list of models with status info.
+    """
+    all_models = {}
+
+    # 1. OpenRouter - fetch ALL models
+    try:
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/models",
+            headers={"User-Agent": "REY-Fleet-Monitor/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            or_models = []
+            for m in data.get("data", []):
+                mid = m.get("id", "")
+                pricing = m.get("pricing", {})
+                prompt_price = safe_float(pricing.get("prompt", "0"))
+                completion_price = safe_float(pricing.get("completion", "0"))
+                is_free = mid.endswith(":free") or (prompt_price == 0 and completion_price == 0)
+
+                or_models.append({
+                    "id": mid,
+                    "name": m.get("name", mid),
+                    "context_length": m.get("context_length", 0),
+                    "pricing": {
+                        "prompt": prompt_price,
+                        "completion": completion_price
+                    },
+                    "is_free": is_free,
+                    "status": "FREE" if is_free else "PAID",
+                    "created": m.get("created", 0)
+                })
+            all_models["openrouter"] = or_models
+    except Exception:
+        all_models["openrouter"] = []
+
+    # 2. Groq
+    groq_key = os.environ.get("GROQ_API_KEY", "")
+    if not groq_key and os.path.exists(AUTH_PATH):
+        try:
+            with open(AUTH_PATH, "r", encoding="utf-8") as af:
+                groq_key = json.load(af).get("groq", {}).get("key", "")
+        except Exception:
+            pass
+
+    if groq_key:
+        try:
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/models",
+                headers={"Authorization": f"Bearer {groq_key}", "User-Agent": "REY-Fleet-Monitor/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                groq_models = []
+                for m in data.get("data", []):
+                    groq_models.append({
+                        "id": m.get("id", ""),
+                        "name": m.get("id", ""),
+                        "context_length": m.get("context_length", 0),
+                        "pricing": {"prompt": 0, "completion": 0},
+                        "is_free": True,
+                        "status": "FREE",
+                        "created": 0
+                    })
+                all_models["groq"] = groq_models
+        except Exception:
+            all_models["groq"] = []
+    else:
+        all_models["groq"] = []
+
+    # 3. Gemini
+    try:
+        gemini_models = [
+            {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "context_length": 1048576, "is_free": True, "status": "FREE"},
+            {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "context_length": 1048576, "is_free": True, "status": "FREE"},
+            {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "context_length": 1048576, "is_free": True, "status": "FREE"},
+        ]
+        all_models["gemini"] = gemini_models
+    except Exception:
+        all_models["gemini"] = []
+
+    # 4. Kilo
+    try:
+        req = urllib.request.Request(
+            "https://api.kilo.ai/api/gateway/v1/models",
+            headers={"User-Agent": "REY-Fleet-Monitor/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            kilo_models = []
+            for m in data.get("data", []):
+                kilo_models.append({
+                    "id": m.get("id", ""),
+                    "name": m.get("name", m.get("id", "")),
+                    "context_length": m.get("context_length", 128000),
+                    "pricing": {"prompt": 0, "completion": 0},
+                    "is_free": True,
+                    "status": "FREE",
+                    "created": 0
+                })
+            all_models["kilo"] = kilo_models
+    except Exception:
+        all_models["kilo"] = []
+
+    # 5. OpenCode
+    try:
+        opencode_models = [
+            {"id": "opencode/auto", "name": "OpenCode Auto", "context_length": 128000, "is_free": True, "status": "FREE"},
+            {"id": "opencode/big-pickle", "name": "OpenCode Big Pickle", "context_length": 128000, "is_free": True, "status": "FREE"},
+            {"id": "opencode/muse-spark-1.3-contributor-free", "name": "OpenCode Muse Spark", "context_length": 128000, "is_free": True, "status": "FREE"},
+        ]
+        all_models["opencode"] = opencode_models
+    except Exception:
+        all_models["opencode"] = []
+
+    return all_models
+
+
+def display_all_models(all_models, config_path=None):
+    """Displays all models from all providers with status indicators."""
+    if not config_path:
+        config_path = CONFIG_JSONC if os.path.exists(CONFIG_JSONC) else CONFIG_JSON
+
+    # Load current whitelist
+    whitelisted = set()
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                if config_path.endswith(".jsonc"):
+                    lines = [l for l in f if not l.strip().startswith("//")]
+                    config = json.loads("\n".join(lines))
+                else:
+                    config = json.load(f)
+
+            for p_name, p_val in config.get("provider", {}).items():
+                if isinstance(p_val, dict):
+                    for m in p_val.get("whitelist", []):
+                        full = f"{p_name}/{m}" if not m.startswith(p_name) else m
+                        whitelisted.add(full)
+        except Exception:
+            pass
+
+    print(f"\n{'=' * 95}")
+    print(f"  {BOLD}R.E.Y. // ALL MODELS FROM ALL PROVIDERS (Free + Paid){RESET}")
+    print(f"{'=' * 95}")
+
+    total_models = 0
+    total_free = 0
+    total_whitelisted = 0
+
+    for provider, models in sorted(all_models.items()):
+        if not models:
+            continue
+
+        free_count = sum(1 for m in models if m.get("is_free"))
+        paid_count = len(models) - free_count
+        whitelisted_count = 0
+
+        print(f"\n  {BOLD}{CYAN}{provider.upper()}{RESET} ({len(models)} models: {GREEN}{free_count} free{RESET}, {YELLOW}{paid_count} paid{RESET})")
+        print(f"  {'-' * 90}")
+
+        # Sort: free first, then by name
+        sorted_models = sorted(models, key=lambda x: (not x.get("is_free", False), x.get("name", "")))
+
+        for m in sorted_models:
+            mid = m.get("id", "")
+            name = m.get("name", mid)
+            ctx = m.get("context_length", 0)
+            ctx_str = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
+            is_free = m.get("is_free", False)
+            is_whitelisted = f"{provider}/{mid}" in whitelisted or mid in whitelisted
+
+            if is_whitelisted:
+                whitelisted_count += 1
+                status_icon = f"{GREEN}[WL]{RESET}"
+            elif is_free:
+                status_icon = f"{YELLOW}[FREE]{RESET}"
+            else:
+                status_icon = f"{GRAY}[PAID]{RESET}"
+
+            pricing = m.get("pricing", {})
+            prompt_p = pricing.get("prompt", 0)
+            compl_p = pricing.get("completion", 0)
+
+            if is_free or (prompt_p == 0 and compl_p == 0):
+                price_str = f"{GREEN}free{RESET}"
+            else:
+                price_str = f"${prompt_p * 1_000_000:.2f}/${compl_p * 1_000_000:.2f} per 1M"
+
+            print(f"  {status_icon} {mid:<50} | ctx:{ctx_str:<6} | {price_str}")
+
+        total_models += len(models)
+        total_free += free_count
+        total_whitelisted += whitelisted_count
+
+    print(f"\n{'=' * 95}")
+    print(f"  {BOLD}TOTAL:{RESET} {total_models} models | {GREEN}{total_free} free{RESET} | {CYAN}{total_whitelisted} whitelisted{RESET}")
+    print(f"  {DIM}Press 'A' in R.E.Y. Monitor to auto-whitelist all discovered free models{RESET}")
+    print(f"{'=' * 95}\n")
+
+
 if __name__ == "__main__":
     quiet_mode = "--quiet" in sys.argv or "-q" in sys.argv
-    run_health_check(quiet=quiet_mode)
+    if "--auto-whitelist" in sys.argv or "-a" in sys.argv:
+        count, models = auto_whitelist_new_models()
+        if count > 0:
+            print(f"\n  {GREEN}[AUTO-WHITELIST]{RESET} Added {count} new free models:")
+            for m in models:
+                print(f"    {GREEN}+{RESET} {m}")
+        else:
+            print(f"\n  {YELLOW}[AUTO-WHITELIST]{RESET} No new models to add (all discovered models already whitelisted)")
+    elif "--all-models" in sys.argv or "-m" in sys.argv:
+        all_models = get_all_provider_models()
+        display_all_models(all_models)
+    else:
+        run_health_check(quiet=quiet_mode)

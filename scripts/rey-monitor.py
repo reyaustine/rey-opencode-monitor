@@ -526,9 +526,16 @@ class ReyMonitor:
         if ok:
             mh = db_data.get('model_health') if ('db_data' in locals() and db_data) else None
             q = self.state.get('openrouter_quota')
+            budget = q.get('budget_status', 'UNKNOWN') if q else 'UNKNOWN'
             if q and q.get('is_rate_limited'):
                 hrs = q.get('hours_left', 0)
                 self.state['health'] = f"DEGRADED (OR 429 - {hrs}h TO RESET | FALLBACKS ON)"
+            elif q and budget == 'DEPLETED':
+                self.state['health'] = 'DEGRADED (OR CREDIT DEPLETED - FALLBACKS ON)'
+            elif q and budget == 'CRITICAL':
+                self.state['health'] = 'DEGRADED (OR CREDIT CRITICAL - FALLBACKS ON)'
+            elif q and budget == 'LOW':
+                self.state['health'] = 'DEGRADED (OR CREDIT LOW)'
             elif mh:
                 if mh.get('running'):
                     self.state['health'] = 'CHECKING FLEET HEALTH...'
@@ -560,7 +567,7 @@ class ReyMonitor:
         level = max(0, min(20, level))
         bar = ('#' * level).ljust(20, '.')
 
-        health_color = GREEN if 'NOMINAL' in self.state['health'] else (YELLOW if 'CHECKING' in self.state['health'] else RED)
+        health_color = GREEN if 'NOMINAL' in self.state['health'] else (YELLOW if 'CHECKING' in self.state['health'] or 'CREDIT LOW' in self.state['health'] else RED)
         act_color = YELLOW if working else GREEN
         tag = '[ THINKING ]' if working else '[ STANDBY ]'
         head_color = YELLOW if working else CYAN
@@ -573,11 +580,21 @@ class ReyMonitor:
             prov_text = f"OR 429 (0/{lim} free, rst {hrs}h) [FALLBACKS ON]"
             prov_color = RED
         elif q and q.get('ok'):
-            rem = q.get('free_remaining', 50)
-            lim = q.get('free_limit', 50)
-            bal = q.get('credits_remaining', 0)
-            prov_text = f"OR {rem}/{lim} free OK (${bal:.2f}) | {self.state['providers']}"
-            prov_color = WHITE
+            free_rem = q.get('free_remaining', '?') if q.get('free_quota_known') else '?'
+            free_lim = q.get('free_limit', '?') if q.get('free_quota_known') else '?'
+            credits = float(q.get('credits_remaining', 0) or 0)
+            credit_limit = float(q.get('credit_limit', 0) or 0)
+            percent = float(q.get('credit_percent_remaining', 0) or 0)
+            budget = q.get('budget_status', 'UNKNOWN')
+            budget_text = {
+                'OK': 'CREDIT OK',
+                'LOW': 'LOW CREDIT',
+                'CRITICAL': 'CRITICAL CREDIT',
+                'DEPLETED': 'CREDIT DEPLETED'
+            }.get(budget, 'CREDIT UNKNOWN')
+            limit_text = f"{credit_limit:.2f}" if credit_limit > 0 else '?'
+            prov_text = f"OR free {free_rem}/{free_lim} | paid ${credits:.3f}/{limit_text} ({percent:.1f}%) | {budget_text} | {self.state['providers']}"
+            prov_color = RED if budget in ('CRITICAL', 'DEPLETED') else YELLOW if budget == 'LOW' else WHITE
         else:
             prov_text = self.state['providers']
             prov_color = WHITE
@@ -607,7 +624,7 @@ class ReyMonitor:
             (f"   activity      : {self.state['activity']}", act_color),
             (f"   status        : {self.state['health']}", health_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
-            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health)", GRAY),
+            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health | A: auto-wl | M: models)", GRAY),
         ]
 
         if cols >= 95:
@@ -799,6 +816,59 @@ class ReyMonitor:
                         sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
                         sys.stdout.flush()
                         self.last_health_check = time.time()
+                        self.refresh_status()
+                    elif ch.lower() == 'a':
+                        # Auto-whitelist all discovered free models
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        print(f"\n  {CYAN}R.E.Y. // AUTO-WHITELIST DISCOVERED FREE MODELS{RESET}")
+                        print(f"  {'=' * 60}")
+                        try:
+                            import rey_health
+                            count, models = rey_health.auto_whitelist_new_models()
+                            if count > 0:
+                                print(f"\n  {GREEN}[SUCCESS]{RESET} Added {count} new free models to whitelist:")
+                                for m in models:
+                                    print(f"    {GREEN}+{RESET} {m}")
+                                print(f"\n  {YELLOW}Models added to opencode.json and model-fallback.json{RESET}")
+                            else:
+                                print(f"\n  {YELLOW}[INFO]{RESET} No new models to add.")
+                                print(f"  All discovered free models are already whitelisted.")
+                        except Exception as e:
+                            print(f"\n  {RED}[ERROR]{RESET} {str(e)}")
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-health.py"), "--auto-whitelist"])
+                        print(f"\n  Press Enter to return to R.E.Y. Monitor...")
+                        try:
+                            input()
+                        except Exception:
+                            pass
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
+                    elif ch.lower() == 'm':
+                        # Show ALL models from all providers
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import rey_health
+                            all_models = rey_health.get_all_provider_models()
+                            rey_health.display_all_models(all_models)
+                        except Exception as e:
+                            print(f"\n  {RED}[ERROR]{RESET} {str(e)}")
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-health.py"), "--all-models"])
+                        print(f"\n  Press Enter to return to R.E.Y. Monitor...")
+                        try:
+                            input()
+                        except Exception:
+                            pass
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
                         self.refresh_status()
 
                 # 30-minute background health & discovery watchdog
