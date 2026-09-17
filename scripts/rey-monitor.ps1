@@ -115,6 +115,156 @@ function Safe-Sub([string]$text, [int]$start, [int]$len) {
   return $text.Substring($start, $take)
 }
 
+$script:missingApiKeys        = @()
+$script:missingProviders      = @()
+$script:lastLoggedMissingKeys = ''
+
+$knownProviderKeys = @{
+  'openrouter' = @('OPENROUTER_API_KEY')
+  'groq'       = @('GROQ_API_KEY')
+  'gemini'     = @('GEMINI_API_KEY', 'GOOGLE_API_KEY')
+  'google'     = @('GEMINI_API_KEY', 'GOOGLE_API_KEY')
+  'mistral'    = @('MISTRAL_API_KEY')
+  'anthropic'  = @('ANTHROPIC_API_KEY')
+  'openai'     = @('OPENAI_API_KEY')
+  'deepseek'   = @('DEEPSEEK_API_KEY')
+  'cerebras'   = @('CEREBRAS_API_KEY')
+  'together'   = @('TOGETHER_API_KEY')
+  'xai'        = @('XAI_API_KEY')
+  'cohere'     = @('COHERE_API_KEY')
+  'perplexity' = @('PERPLEXITY_API_KEY')
+  'kilo'       = @()
+  'opencode'   = @()
+  'lmstudio'   = @()
+  'ollama'     = @()
+  'local'      = @()
+}
+
+function Get-DotEnvKeys([string]$path) {
+  $dict = @{}
+  if (-not (Test-Path -LiteralPath $path)) { return $dict }
+  try {
+    $lines = [System.IO.File]::ReadAllLines($path, [System.Text.Encoding]::UTF8)
+    foreach ($line in $lines) {
+      $trim = $line.Trim()
+      if (-not $trim -or $trim.StartsWith('#')) { continue }
+      if ($trim -match '^\s*(?:export\s+)?([a-zA-Z0-9_]+)\s*=\s*(.*)$') {
+        $k = $matches[1].Trim()
+        $v = $matches[2].Trim().Trim('"', "'")
+        if ($k -and $v -and ($v -notmatch '^(your_|sk-xxx|dummy)')) {
+          $dict[$k] = $v
+        }
+      }
+    }
+  } catch { }
+  return $dict
+}
+
+function Test-ActiveProviderKeys([string]$DefaultModel, [string]$SmallModel, [array]$Sessions, [object]$Cfgc) {
+  $activeProvs = @{}
+
+  # 1. Default model provider
+  $cleanDef = $DefaultModel -replace '\s*\[.*\]$', ''
+  if ($cleanDef -match '^([a-zA-Z0-9_-]+)/') {
+    $activeProvs[$matches[1].ToLower()] = $true
+  }
+
+  # 2. Small model provider
+  $cleanSmall = $SmallModel -replace '\s*\[.*\]$', ''
+  if ($cleanSmall -match '^([a-zA-Z0-9_-]+)/') {
+    $activeProvs[$matches[1].ToLower()] = $true
+  }
+
+  # 3. Active subagent sessions (WORKING)
+  if ($Sessions) {
+    foreach ($s in $Sessions) {
+      if ($s.state -eq 'WORKING') {
+        if ($s.model -and ($s.model -match '^([a-zA-Z0-9_-]+)/')) {
+          $activeProvs[$matches[1].ToLower()] = $true
+        } elseif ($s.provider) {
+          $activeProvs[[string]($s.provider).ToLower()] = $true
+        }
+      }
+    }
+  }
+
+  # 4. Core configured agents
+  if ($Cfgc -and $Cfgc.agent) {
+    foreach ($prop in $Cfgc.agent.psobject.properties) {
+      if ($prop.Value.model -and ($prop.Value.model -match '^([a-zA-Z0-9_-]+)/')) {
+        $activeProvs[$matches[1].ToLower()] = $true
+      }
+    }
+  }
+
+  # Parse .env keys
+  $envPath = Join-Path $global:OpenCodeConfDir '.env'
+  $dotenv = Get-DotEnvKeys $envPath
+
+  $missingKeys = @()
+  $missingProvs = @()
+
+  foreach ($p in $activeProvs.Keys) {
+    $req = @()
+    if ($Cfgc -and $Cfgc.provider -and $Cfgc.provider.$p -and $Cfgc.provider.$p.options -and $Cfgc.provider.$p.options.apiKey) {
+      $optKey = [string]$Cfgc.provider.$p.options.apiKey
+      if ($optKey -match '\{env:([^}]+)\}') {
+        $req += $matches[1].Trim()
+      }
+    }
+
+    if ($req.Count -eq 0) {
+      if ($knownProviderKeys.ContainsKey($p)) {
+        $req = @($knownProviderKeys[$p])
+      } else {
+        $req = @("${p}_API_KEY".ToUpper())
+      }
+    }
+
+    # Zero-key providers
+    if ($req.Count -eq 0) {
+      continue
+    }
+
+    $found = $false
+    # Check current process / system environment
+    foreach ($k in $req) {
+      $val = [Environment]::GetEnvironmentVariable($k, 'Process')
+      if (-not $val) { $val = [Environment]::GetEnvironmentVariable($k, 'User') }
+      if (-not $val) { $val = [Environment]::GetEnvironmentVariable($k, 'Machine') }
+      if ($val -and $val.Trim().Length -gt 5) {
+        $found = $true
+        [Environment]::SetEnvironmentVariable($k, $val, 'Process')
+        Set-Item -Path "env:$k" -Value $val -ErrorAction SilentlyContinue
+        break
+      }
+    }
+
+    # If not in env, check .env file and auto-import into process
+    if (-not $found) {
+      foreach ($k in $req) {
+        if ($dotenv.ContainsKey($k)) {
+          $val = $dotenv[$k]
+          if ($val -and $val.Length -gt 5) {
+            $found = $true
+            [Environment]::SetEnvironmentVariable($k, $val, 'Process')
+            Set-Item -Path "env:$k" -Value $val -ErrorAction SilentlyContinue
+            break
+          }
+        }
+      }
+    }
+
+    if (-not $found) {
+      $missingKeys += $req[0]
+      $missingProvs += $p
+    }
+  }
+
+  $script:missingApiKeys   = @($missingKeys | Select-Object -Unique)
+  $script:missingProviders = @($missingProvs | Select-Object -Unique)
+}
+
 function Refresh-Status {
   $ok = $true
 
@@ -423,6 +573,21 @@ function Refresh-Status {
       $state.Health = "DEGRADED - CHECK LOG ($($diagLines -join ' | '))"
     }
   }
+    # 5. API Key Verification for Active Providers
+  Test-ActiveProviderKeys -DefaultModel $state.DefaultModel -SmallModel $state.SmallModel -Sessions $sessions -Cfgc $cfgc
+  if ($script:missingProviders.Count -gt 0) {
+    $ok = $false
+    $missStr = $script:missingApiKeys -join ', '
+    $state.Health = "CRITICAL: MISSING API KEY ($missStr)"
+    $currentMissStr = $script:missingApiKeys -join ','
+    if ($currentMissStr -ne $script:lastLoggedMissingKeys) {
+      Add-Log "[ALERT] Missing API key: $missStr - model calls will fail!"
+      $script:lastLoggedMissingKeys = $currentMissStr
+    }
+  } else {
+    $script:lastLoggedMissingKeys = ''
+  }
+
   $state.LastRefresh = (Get-Date -Format 'HH:mm:ss')
 }
 
@@ -443,7 +608,7 @@ function Get-ConsoleSize {
   return @{ Width = [Math]::Max(20, $w); Height = [Math]::Max(10, $h) }
 }
 
-function Write-Row([int]$row, [string]$text, [string]$color) {
+function Write-Row([int]$row, [string]$text, [string]$color, [string]$bgColor = '') {
   try {
     $dims = Get-ConsoleSize
     $winWidth  = $dims.Width
@@ -468,7 +633,11 @@ function Write-Row([int]$row, [string]$text, [string]$color) {
         [Console]::SetCursorPosition(0, $row)
       } catch { }
     }
-    Write-Host $text -NoNewline -ForegroundColor $color
+    if ($bgColor) {
+      Write-Host $text -NoNewline -ForegroundColor $color -BackgroundColor $bgColor
+    } else {
+      Write-Host $text -NoNewline -ForegroundColor $color
+    }
   } catch {
     # Swallow transient resize coordinate exceptions
   }
@@ -535,7 +704,15 @@ function Get-RobotLine([int]$lineIndex, [int]$frame, [bool]$working, [string]$ta
   $ant = '|'; $lb = '─'; $rb = '─'; $le = '◉'; $re = '◉'; $mth = '───'
   $glow = 'Yellow'; $mood = 'STANDBY'; $status = 'Standing by...'
 
-  if (-not $healthOk) {
+  if ($script:missingProviders.Count -gt 0) {
+    $ant = '⚡'; $lb = '╲'; $rb = '╱'
+    $le = if ($frame % 2 -eq 0) { '✖' } else { '!' }
+    $re = if ($frame % 2 -eq 0) { '✖' } else { '!' }
+    $mth = '▃▃▃'
+    $glow = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
+    $mood = 'NO KEY'
+    $status = "Missing $($script:missingApiKeys[0])!"
+  } elseif (-not $healthOk) {
     # Determine specific alert based on health status
     if ($healthStatus -like '*UNRESPONSIVE*') {
       $ant = '⚠'; $lb = '╲'; $rb = '╱'; $le = '!'; $re = '!'; $mth = '▃▃▃'
@@ -707,9 +884,26 @@ function Draw([int]$frame, [bool]$working) {
     $tag         = if ($working) { '[ THINKING ]' } else { '[ STANDBY ]' }
     $headColor   = if ($working) { 'Yellow' } else { 'Cyan' }
 
+    $hasMissing = ($script:missingApiKeys.Count -gt 0)
+    if ($hasMissing) {
+      $healthColor = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
+      $headColor   = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
+      $tag         = if ($frame % 2 -eq 0) { '[ ⚠️ NO API KEY! ]' } else { '[ 🚨 MISSING KEY! ]' }
+    }
+
     Write-Row 0  '  ==============================================================' $headColor
     Write-Row 1  ("   R.E.Y.  //  RUNTIME EXECUTION & YIELD MONITOR  $tag [ $s ] [$bar]") $headColor
-    Write-Row 2  '  ==============================================================' $headColor
+
+    if ($hasMissing) {
+      $missStr = $script:missingApiKeys -join ', '
+      if ($frame % 2 -eq 0) {
+        Write-Row 2  ("  ⚠️  MISSING API KEY: [ $missStr ] - BLIND MODEL CALLS WILL FAIL!  ") 'White' 'DarkRed'
+      } else {
+        Write-Row 2  ("  🚨  ACTION REQUIRED: Set $missStr in ~/.config/opencode/.env!  ") 'Black' 'Yellow'
+      }
+    } else {
+      Write-Row 2  '  ==============================================================' $headColor
+    }
 
     # Find active task title for robot face
     $activeTask = ''
@@ -742,17 +936,38 @@ function Draw([int]$frame, [bool]$working) {
       $provColor = if ($budget -eq 'DEPLETED' -or $budget -eq 'CRITICAL') { 'Red' } elseif ($budget -eq 'LOW') { 'Yellow' } else { 'White' }
     }
 
+    $defProv = ''
+    $cleanDef = $state.DefaultModel -replace '\s*\[.*\]$', ''
+    if ($cleanDef -match '^([a-zA-Z0-9_-]+)/') { $defProv = $matches[1].ToLower() }
+    $defMissing = ($defProv -and ($script:missingProviders -contains $defProv))
+    $defText = "   default model : " + $state.DefaultModel + (if ($defMissing) { "  ⚠️ [NO API KEY - WILL FAIL!]" } else { "" })
+    $defColor = if ($defMissing) { (if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }) } else { 'White' }
+
+    $smallProv = ''
+    $cleanSmall = $state.SmallModel -replace '\s*\[.*\]$', ''
+    if ($cleanSmall -match '^([a-zA-Z0-9_-]+)/') { $smallProv = $matches[1].ToLower() }
+    $smallMissing = ($smallProv -and ($script:missingProviders -contains $smallProv))
+    $smallText = "   small model   : " + $state.SmallModel + (if ($smallMissing) { "  ⚠️ [NO API KEY!]" } else { "" })
+    $smallColor = if ($smallMissing) { (if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }) } else { 'White' }
+
+    $statusLineText = if ($hasMissing) {
+      "   status        : ⚠️ CRITICAL: MISSING API KEY ($($script:missingApiKeys -join ', '))"
+    } else {
+      "   status        : " + $state.Health
+    }
+    $statusLineColor = if ($hasMissing) { (if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }) } else { $healthColor }
+
     $sysRows = @(
       @{ Text = ("   opencode IDE  : " + $state.IdeStatus); Color = $state.IdeColor },
       @{ Text = ("   workspace     : " + $state.Workspace); Color = 'White' },
-      @{ Text = ("   default model : " + $state.DefaultModel); Color = 'White' },
-      @{ Text = ("   small model   : " + $state.SmallModel); Color = 'White' },
+      @{ Text = $defText; Color = $defColor },
+      @{ Text = $smallText; Color = $smallColor },
       @{ Text = ("   openrouter/gate: " + (Shorten $provText 44)); Color = $provColor },
       @{ Text = ("   models visible: " + $state.ModelCount); Color = 'White' },
       @{ Text = ("   opencode      : " + $state.Version); Color = 'White' },
       @{ Text = ("   active threads: " + $state.ThreadCount); Color = 'Magenta' },
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
-      @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
+      @{ Text = $statusLineText; Color = $statusLineColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
       @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | M: models | W: whitelist | ?: help)'); Color = 'DarkGray' }
     )
@@ -872,8 +1087,16 @@ function Draw([int]$frame, [bool]$working) {
           $task  = Shorten $t.title 24
           $st    = [string]$t.state
 
+          $tProv = ''
+          if ($t.model -match '^([a-zA-Z0-9_-]+)/') { $tProv = $matches[1].ToLower() }
+          $tKeyMissing = ($tProv -and ($script:missingProviders -contains $tProv))
+          if ($tKeyMissing) {
+            $st = 'NO KEY!'
+            $color = if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }
+          } else {
+            $color = if ($st -eq 'WORKING') { 'Yellow' } else { 'Gray' }
+          }
           $line = ('  {0,-12} | {1,-12} | {2,-7} | {3,-22} | {4,-24} [{5}]' -f $sid, $ws, $ag, $mod, $task, $st)
-          $color = if ($st -eq 'WORKING') { 'Yellow' } else { 'Gray' }
         }
         Write-Row ($subHeaderRow + 2 + $i) $line $color
       }

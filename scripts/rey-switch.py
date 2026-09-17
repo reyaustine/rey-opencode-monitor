@@ -225,6 +225,53 @@ OPENROUTER_PROVIDER_CONFIG = {
 }
 
 
+def check_provider_api_key(prov: str) -> Tuple[bool, Optional[str]]:
+    prov_keys = {
+        'openrouter': ['OPENROUTER_API_KEY'],
+        'groq': ['GROQ_API_KEY'],
+        'gemini': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+        'google': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+        'mistral': ['MISTRAL_API_KEY'],
+        'anthropic': ['ANTHROPIC_API_KEY'],
+        'openai': ['OPENAI_API_KEY'],
+        'deepseek': ['DEEPSEEK_API_KEY'],
+        'cerebras': ['CEREBRAS_API_KEY'],
+        'together': ['TOGETHER_API_KEY'],
+        'xai': ['XAI_API_KEY'],
+        'cohere': ['COHERE_API_KEY'],
+        'perplexity': ['PERPLEXITY_API_KEY'],
+        'kilo': [],
+        'opencode': [],
+        'lmstudio': [],
+        'ollama': [],
+        'local': [],
+    }
+    reqs = prov_keys.get(prov.lower(), [f"{prov.upper()}_API_KEY"])
+    if not reqs:
+        return True, None
+    for k in reqs:
+        if os.environ.get(k) and len(os.environ[k].strip()) > 5:
+            return True, k
+    env_p = os.path.join(HOME, ".config", "opencode", ".env")
+    if os.path.exists(env_p):
+        try:
+            with open(env_p, "r", encoding="utf-8-sig", errors="replace") as ef:
+                for line in ef:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        if k.startswith("export "):
+                            k = k[7:].strip()
+                        v = v.strip().strip('"\'')
+                        if k in reqs and len(v) > 5 and not v.startswith(("your_", "sk-xxx", "dummy")):
+                            os.environ[k] = v
+                            return True, k
+        except Exception:
+            pass
+    return False, reqs[0]
+
+
 def read_json_flexible(path: str) -> Optional[dict]:
     if not os.path.exists(path):
         return None
@@ -638,8 +685,19 @@ def apply_configuration(
     p_info = PROVIDERS_INFO.get(primary, PROVIDERS_INFO["kilo"])
     s_info = PROVIDERS_INFO.get(secondary, PROVIDERS_INFO["openrouter"])
 
-    print(f"  {WHITE}Primary Provider  :{RESET} {GREEN}{p_info['name']}{RESET} ({p_info['primary_model']})")
-    print(f"  {WHITE}Secondary Provider:{RESET} {CYAN}{s_info['name']}{RESET} ({s_info['small_model']})")
+    p_has_key, p_key_name = check_provider_api_key(primary)
+    s_has_key, s_key_name = check_provider_api_key(secondary)
+
+    p_tag = f"{GREEN}[KEY OK]{RESET}" if (p_has_key and p_key_name) else (f"{GREEN}[ZERO-CONFIG]{RESET}" if p_has_key else f"{RED}{BOLD}[⚠️ NO API KEY: {p_key_name}]{RESET}")
+    s_tag = f"{GREEN}[KEY OK]{RESET}" if (s_has_key and s_key_name) else (f"{GREEN}[ZERO-CONFIG]{RESET}" if s_has_key else f"{RED}{BOLD}[⚠️ NO API KEY: {s_key_name}]{RESET}")
+
+    print(f"  {WHITE}Primary Provider  :{RESET} {GREEN}{p_info['name']}{RESET} ({p_info['primary_model']}) {p_tag}")
+    print(f"  {WHITE}Secondary Provider:{RESET} {CYAN}{s_info['name']}{RESET} ({s_info['small_model']}) {s_tag}")
+
+    if not p_has_key:
+        print(f"  {RED}{BOLD}⚠️  WARNING: No API key found for {p_info['name']} ({p_key_name})! Requests will fail until added to .env{RESET}")
+    if not s_has_key:
+        print(f"  {RED}{BOLD}⚠️  WARNING: No API key found for {s_info['name']} ({s_key_name})! Requests will fail until added to .env{RESET}")
 
     # Determine enabled & disabled providers
     state = get_current_state()
@@ -792,7 +850,9 @@ def interactive_primary_secondary_wizard() -> None:
     print(f"  (Powers lead agent @build, core @coder, @plan, and default model)\n")
     for i, p in enumerate(prov_keys, 1):
         info = PROVIDERS_INFO[p]
-        print(f"   [{i}] {info['name']:<18} - {info['desc']}")
+        has_k, kn = check_provider_api_key(p)
+        k_tag = f" {GREEN}[KEY OK]{RESET}" if (has_k and kn) else (f" {GREEN}[ZERO-CONFIG]{RESET}" if has_k else f" {RED}{BOLD}[⚠️ NO KEY: {kn}]{RESET}")
+        print(f"   [{i}] {info['name']:<18} - {info['desc']}{k_tag}")
     print(f"   [0] Cancel\n")
 
     p_choice = input(f"  Choose Primary [1-{len(prov_keys)}]: ").strip()
@@ -806,8 +866,10 @@ def interactive_primary_secondary_wizard() -> None:
     print(f"  (Powers fast @small_model, verification @qa, @linter, @verifier, & 1st fallback)\n")
     for i, p in enumerate(prov_keys, 1):
         info = PROVIDERS_INFO[p]
+        has_k, kn = check_provider_api_key(p)
+        k_tag = f" {GREEN}[KEY OK]{RESET}" if (has_k and kn) else (f" {GREEN}[ZERO-CONFIG]{RESET}" if has_k else f" {RED}{BOLD}[⚠️ NO KEY: {kn}]{RESET}")
         tag = f" {YELLOW}(Current Primary){RESET}" if p == primary_selected else ""
-        print(f"   [{i}] {info['name']:<18} - {info['desc']}{tag}")
+        print(f"   [{i}] {info['name']:<18} - {info['desc']}{tag}{k_tag}")
     print(f"   [0] Cancel\n")
 
     s_choice = input(f"  Choose Secondary [1-{len(prov_keys)}]: ").strip()

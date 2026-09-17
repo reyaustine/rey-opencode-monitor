@@ -14,6 +14,7 @@ import shutil
 import json
 import socket
 import random
+import re
 from pathlib import Path
 
 # ANSI color codes
@@ -80,7 +81,7 @@ def safe_sub(text, start, length):
         return ''
     return text[start:start + length]
 
-def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch_active=False, punch_tick=0):
+def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch_active=False, punch_tick=0, missing_keys=None):
     spinners = ["|", "/", "-", "\\"]
     mouths = ["▄  ", " ▄ ", "  ▄", " ▄ "]
 
@@ -151,7 +152,16 @@ def get_robot_lines(frame, is_working, task_title, health_ok, elapsed_s=0, punch
             ]
 
     # 2. Standard Task & Idle Expression Logic
-    if not health_ok:
+    if missing_keys:
+        ant, lb, rb = "⚡", "╲", "╱"
+        le = "✖" if (frame % 2 == 0) else "!"
+        re = "✖" if (frame % 2 == 0) else "!"
+        mth = "▃▃▃"
+        glow = RED if (frame % 2 == 0) else YELLOW
+        mood = "NO KEY"
+        first_k = missing_keys[0].upper()
+        status_text = f"Missing {first_k}!"
+    elif not health_ok:
         ant, lb, rb, le, re, mth = "☡", "╲", "╱", "✖", "✖", "▃▃▃"
         glow, mood, status_text = RED, "ALERT", "Check error log!"
     elif is_working:
@@ -292,6 +302,9 @@ class ReyMonitor:
         self.last_w = 0
         self.last_h = 0
         self.view_mode = 'FLEET'  # 'FLEET' or 'TOKENS'
+        self.missing_api_keys = []
+        self.missing_providers = []
+        self.last_logged_missing_keys = ''
 
         self.state = {
             'tick': 0,
@@ -326,6 +339,110 @@ class ReyMonitor:
         while len(self.logs) > 6:
             self.logs.pop(0)
 
+    def check_active_provider_keys(self, sessions, cfgc_data):
+        known_keys = {
+            'openrouter': ['OPENROUTER_API_KEY'],
+            'groq': ['GROQ_API_KEY'],
+            'gemini': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+            'google': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+            'mistral': ['MISTRAL_API_KEY'],
+            'anthropic': ['ANTHROPIC_API_KEY'],
+            'openai': ['OPENAI_API_KEY'],
+            'deepseek': ['DEEPSEEK_API_KEY'],
+            'cerebras': ['CEREBRAS_API_KEY'],
+            'together': ['TOGETHER_API_KEY'],
+            'xai': ['XAI_API_KEY'],
+            'cohere': ['COHERE_API_KEY'],
+            'perplexity': ['PERPLEXITY_API_KEY'],
+            'kilo': [],
+            'opencode': [],
+            'lmstudio': [],
+            'ollama': [],
+            'local': []
+        }
+
+        active_provs = set()
+        clean_def = self.state.get('default_model', '').split(' [')[0].strip()
+        if '/' in clean_def:
+            active_provs.add(clean_def.split('/')[0].lower())
+
+        clean_small = self.state.get('small_model', '').split(' [')[0].strip()
+        if '/' in clean_small:
+            active_provs.add(clean_small.split('/')[0].lower())
+
+        for s in sessions:
+            if s.get('state') == 'WORKING':
+                m = s.get('model', '')
+                if '/' in m:
+                    active_provs.add(m.split('/')[0].lower())
+                elif s.get('provider'):
+                    active_provs.add(str(s['provider']).lower())
+
+        if cfgc_data and isinstance(cfgc_data.get('agent'), dict):
+            for ag_name, ag_val in cfgc_data['agent'].items():
+                if isinstance(ag_val, dict) and ag_val.get('model') and '/' in ag_val['model']:
+                    active_provs.add(ag_val['model'].split('/')[0].lower())
+
+        env_path = os.path.expanduser('~/.config/opencode/.env')
+        dotenv_keys = {}
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, 'r', encoding='utf-8-sig', errors='replace') as ef:
+                    for line in ef:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if '=' in line:
+                            k, v = line.split('=', 1)
+                            k = k.strip()
+                            if k.startswith('export '):
+                                k = k[7:].strip()
+                            v = v.strip().strip('"\'')
+                            if k and v and not v.startswith(('your_', 'sk-xxx', 'dummy')):
+                                dotenv_keys[k] = v
+            except Exception:
+                pass
+
+        missing_keys = []
+        missing_provs = []
+
+        for p in active_provs:
+            req = []
+            if cfgc_data and isinstance(cfgc_data.get('provider'), dict):
+                p_conf = cfgc_data['provider'].get(p, {})
+                opt_key = p_conf.get('options', {}).get('apiKey', '')
+                m = re.search(r'\{env:([^}]+)\}', opt_key)
+                if m:
+                    req.append(m.group(1).strip())
+
+            if not req:
+                req = known_keys.get(p, [f"{p.upper()}_API_KEY"])
+
+            if not req:
+                continue
+
+            found = False
+            for k in req:
+                val = os.environ.get(k)
+                if val and len(val.strip()) > 5:
+                    found = True
+                    break
+
+            if not found:
+                for k in req:
+                    val = dotenv_keys.get(k)
+                    if val and len(val) > 5:
+                        found = True
+                        os.environ[k] = val
+                        break
+
+            if not found:
+                missing_keys.append(req[0])
+                missing_provs.append(p)
+
+        self.missing_api_keys = list(dict.fromkeys(missing_keys))
+        self.missing_providers = list(dict.fromkeys(missing_provs))
+
     def refresh_status(self):
         ok = True
 
@@ -347,6 +464,7 @@ class ReyMonitor:
                 with open(cfg_jsonc, 'r', encoding='utf-8') as f:
                     lines = [l for l in f if not l.strip().startswith('//')]
                     cdata = json.loads('\n'.join(lines))
+                    self._cfgc_cached = cdata
                     if cdata.get('enabled_providers'):
                         self.state['providers'] = ', '.join(cdata['enabled_providers'])
 
@@ -552,6 +670,18 @@ class ReyMonitor:
                 self.state['health'] = 'ALL SYSTEMS NOMINAL'
         else:
             self.state['health'] = 'DEGRADED - CHECK LOG'
+        cfgc_data = getattr(self, '_cfgc_cached', None)
+        self.check_active_provider_keys(self.thread_cache.values(), cfgc_data)
+        if self.missing_providers:
+            miss_str = ', '.join(self.missing_api_keys)
+            self.state['health'] = f"CRITICAL: MISSING API KEY ({miss_str})"
+            cur_miss = ','.join(self.missing_api_keys)
+            if cur_miss != self.last_logged_missing_keys:
+                self.add_log(f"[ALERT] Missing API key: {miss_str} - model calls will fail!")
+                self.last_logged_missing_keys = cur_miss
+        else:
+            self.last_logged_missing_keys = ''
+
         self.state['last_refresh'] = time.strftime('%H:%M:%S')
 
     def draw(self, frame):
@@ -612,20 +742,47 @@ class ReyMonitor:
                 return f"{color}{raw}{RESET}"
             return raw
 
+        has_missing = bool(self.missing_api_keys)
+        if has_missing:
+            head_color = RED if frame % 2 == 0 else YELLOW
+            tag = "[ ⚠️ NO API KEY! ]" if frame % 2 == 0 else "[ 🚨 MISSING KEY! ]"
+            health_color = RED if frame % 2 == 0 else YELLOW
+
         lines.append(row('  ' + '=' * 62, head_color))
         lines.append(row(f"   R.E.Y.  //  RUNTIME EXECUTION & YIELD MONITOR  {tag} [ {spin} ] [{bar}]", head_color))
-        lines.append(row('  ' + '=' * 62, head_color))
+        if has_missing:
+            miss_str = ', '.join(self.missing_api_keys)
+            if frame % 2 == 0:
+                lines.append(f"\033[41;97;1m  ⚠️  MISSING API KEY: [ {miss_str} ] - BLIND MODEL CALLS WILL FAIL!  \033[0m")
+            else:
+                lines.append(f"\033[43;30;1m  🚨  ACTION REQUIRED: Set {miss_str} in ~/.config/opencode/.env!  \033[0m")
+        else:
+            lines.append(row('  ' + '=' * 62, head_color))
+
+        def_prov = self.state['default_model'].split(' [')[0].split('/')[0].lower() if '/' in self.state['default_model'] else ''
+        def_missing = def_prov in self.missing_providers
+        def_text = f"   default model : {self.state['default_model']}" + ("  ⚠️ [NO API KEY - WILL FAIL!]" if def_missing else "")
+        def_color = (RED if frame % 2 == 0 else YELLOW) if def_missing else WHITE
+
+        small_prov = self.state['small_model'].split(' [')[0].split('/')[0].lower() if '/' in self.state['small_model'] else ''
+        small_missing = small_prov in self.missing_providers
+        small_text = f"   small model   : {self.state['small_model']}" + ("  ⚠️ [NO API KEY!]" if small_missing else "")
+        small_color = (RED if frame % 2 == 0 else YELLOW) if small_missing else WHITE
+
+        status_text = f"   status        : ⚠️ CRITICAL: MISSING API KEY ({', '.join(self.missing_api_keys)})" if has_missing else f"   status        : {self.state['health']}"
+        status_color = (RED if frame % 2 == 0 else YELLOW) if has_missing else health_color
+
         sys_items = [
             (f"   opencode IDE  : {self.state['ide_status']}", self.state['ide_color']),
             (f"   workspace     : {self.state['workspace']}", WHITE),
-            (f"   default model : {self.state['default_model']}", WHITE),
-            (f"   small model   : {self.state['small_model']}", WHITE),
+            (def_text, def_color),
+            (small_text, small_color),
             (f"   openrouter/gate: {prov_text}", prov_color),
             (f"   models visible: {self.state['model_count']}", WHITE),
             (f"   opencode      : {self.state['version']}", WHITE),
             (f"   active threads: {self.state['thread_count']}", MAGENTA),
             (f"   activity      : {self.state['activity']}", act_color),
-            (f"   status        : {self.state['health']}", health_color),
+            (status_text, status_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
             (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | S: switch | T: tokens | L: logs | D: deals | O: override | H: health | M: models | W: whitelist)", GRAY),
         ]
@@ -657,7 +814,7 @@ class ReyMonitor:
             else:
                 self.punch_active = False
 
-            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok, elapsed_s, self.punch_active, self.punch_tick)
+            robot_lines = get_robot_lines(frame, working, active_task_title, health_ok, elapsed_s, self.punch_active, self.punch_tick, missing_keys=self.missing_api_keys)
 
             for idx, (txt, col) in enumerate(sys_items):
                 left_part = (txt[:65]).ljust(65)
@@ -734,9 +891,15 @@ class ReyMonitor:
                     mod = shorten(t.get('model', ''), 22)
                     task = shorten(t.get('title', ''), 24)
                     st = str(t.get('state', 'DONE'))
+                    t_mod = t.get('model', '')
+                    t_prov = t_mod.split('/')[0].lower() if '/' in t_mod else ''
+                    if t_prov in self.missing_providers:
+                        st = 'NO KEY!'
+                        col = RED if frame % 2 == 0 else YELLOW
+                    else:
+                        col = YELLOW if st == 'WORKING' else GRAY
 
                     line_str = f"  {sid:<12} | {ws:<12} | {ag:<7} | {mod:<22} | {task:<24} [{st}]"
-                    col = YELLOW if st == 'WORKING' else GRAY
                     lines.append(row(line_str, col))
                 else:
                     lines.append(row(''))

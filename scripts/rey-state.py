@@ -452,6 +452,69 @@ def get_state():
     except Exception:
         pass
 
+    # 5. Detect missing API keys for active models and sessions
+    try:
+        known_keys = {
+            'openrouter': ['OPENROUTER_API_KEY'],
+            'groq': ['GROQ_API_KEY'],
+            'gemini': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+            'google': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+            'mistral': ['MISTRAL_API_KEY'],
+            'anthropic': ['ANTHROPIC_API_KEY'],
+            'openai': ['OPENAI_API_KEY'],
+            'deepseek': ['DEEPSEEK_API_KEY'],
+            'cerebras': ['CEREBRAS_API_KEY'],
+            'together': ['TOGETHER_API_KEY'],
+            'xai': ['XAI_API_KEY'],
+            'cohere': ['COHERE_API_KEY'],
+            'perplexity': ['PERPLEXITY_API_KEY'],
+            'kilo': [],
+            'opencode': [],
+            'lmstudio': [],
+            'ollama': [],
+            'local': []
+        }
+        active_provs = set()
+        override_m = result.get('override_model')
+        if override_m and '/' in str(override_m):
+            active_provs.add(str(override_m).split('/')[0].lower())
+        rot = result.get('rotation')
+        if rot and rot.get('summary') and '/' in str(rot['summary']):
+            active_provs.add(str(rot['summary']).split('/')[0].lower())
+        for s in result.get('sessions', []):
+            if s.get('state') == 'WORKING':
+                sm = s.get('model', '')
+                if '/' in sm:
+                    active_provs.add(sm.split('/')[0].lower())
+
+        env_p = os.path.join(os.path.expanduser('~'), '.config', 'opencode', '.env')
+        dot_keys = {}
+        if os.path.exists(env_p):
+            with open(env_p, 'r', encoding='utf-8-sig', errors='replace') as ef:
+                for line in ef:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        k, v = line.split('=', 1)
+                        k = k.strip()
+                        if k.startswith('export '):
+                            k = k[7:].strip()
+                        v = v.strip().strip('"\'')
+                        if k and v and not v.startswith(('your_', 'sk-xxx', 'dummy')):
+                            dot_keys[k] = v
+
+        missing_keys = []
+        for p in active_provs:
+            req = known_keys.get(p, [f"{p.upper()}_API_KEY"])
+            if not req:
+                continue
+            found = any((os.environ.get(k) and len(os.environ[k].strip()) > 5) or
+                        (dot_keys.get(k) and len(dot_keys[k]) > 5) for k in req)
+            if not found:
+                missing_keys.append(req[0])
+        result['missing_api_keys'] = list(dict.fromkeys(missing_keys))
+    except Exception:
+        result['missing_api_keys'] = []
+
     return result
 
 if __name__ == '__main__':

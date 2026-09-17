@@ -91,6 +91,10 @@ def build_status():
         limit_text = f"{credit_limit:.2f}" if credit_limit > 0 else "?"
         or_quota = f"{free_text} free | ${credits:.3f}/${limit_text} ({percent:.1f}%) | today ${daily:.3f}"
 
+    missing_keys = state.get("missing_api_keys", [])
+    if missing_keys:
+        health = f"MISSING API KEY ({', '.join(missing_keys)})"
+
     return {
         "ok": state.get("ok", False),
         "threads": threads,
@@ -99,6 +103,7 @@ def build_status():
         "health": health,
         "openrouter_quota": or_quota,
         "db_found": state.get("db_found", False),
+        "missing_api_keys": missing_keys,
     }
 
 
@@ -120,6 +125,10 @@ def main():
         f"health:{status['health']} | OR:{status['openrouter_quota']} | "
         f"model:{status['model']} | ws:{status['workspace']}"
     )
+    if status.get("missing_api_keys"):
+        miss_str = ", ".join(status["missing_api_keys"])
+        line = f"⚠️ MISSING API KEY: {miss_str} | " + line
+
     print(line)
     return 0
 
