@@ -940,22 +940,24 @@ function Draw([int]$frame, [bool]$working) {
     $cleanDef = $state.DefaultModel -replace '\s*\[.*\]$', ''
     if ($cleanDef -match '^([a-zA-Z0-9_-]+)/') { $defProv = $matches[1].ToLower() }
     $defMissing = ($defProv -and ($script:missingProviders -contains $defProv))
-    $defText = "   default model : " + $state.DefaultModel + (if ($defMissing) { "  ⚠️ [NO API KEY - WILL FAIL!]" } else { "" })
-    $defColor = if ($defMissing) { (if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }) } else { 'White' }
+    $defSuffix = if ($defMissing) { "  ⚠️ [NO API KEY - WILL FAIL!]" } else { "" }
+    $defText = "   default model : " + $state.DefaultModel + $defSuffix
+    $defColor = if ($defMissing) { if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' } } else { 'White' }
 
     $smallProv = ''
     $cleanSmall = $state.SmallModel -replace '\s*\[.*\]$', ''
     if ($cleanSmall -match '^([a-zA-Z0-9_-]+)/') { $smallProv = $matches[1].ToLower() }
     $smallMissing = ($smallProv -and ($script:missingProviders -contains $smallProv))
-    $smallText = "   small model   : " + $state.SmallModel + (if ($smallMissing) { "  ⚠️ [NO API KEY!]" } else { "" })
-    $smallColor = if ($smallMissing) { (if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }) } else { 'White' }
+    $smallSuffix = if ($smallMissing) { "  ⚠️ [NO API KEY!]" } else { "" }
+    $smallText = "   small model   : " + $state.SmallModel + $smallSuffix
+    $smallColor = if ($smallMissing) { if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' } } else { 'White' }
 
     $statusLineText = if ($hasMissing) {
       "   status        : ⚠️ CRITICAL: MISSING API KEY ($($script:missingApiKeys -join ', '))"
     } else {
       "   status        : " + $state.Health
     }
-    $statusLineColor = if ($hasMissing) { (if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' }) } else { $healthColor }
+    $statusLineColor = if ($hasMissing) { if ($frame % 2 -eq 0) { 'Red' } else { 'Yellow' } } else { $healthColor }
 
     $sysRows = @(
       @{ Text = ("   opencode IDE  : " + $state.IdeStatus); Color = $state.IdeColor },
