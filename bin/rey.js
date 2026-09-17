@@ -31,11 +31,24 @@ function run(cmd, argv) {
   });
 }
 
+function resolveScript(name) {
+  const candidates = [
+    path.join(rootDir, 'scripts', name),
+    path.join(rootDir, name),
+    path.join(require('os').homedir(), '.config', 'opencode', 'scripts', name),
+    path.join(require('os').homedir(), '.config', 'opencode', name)
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return path.join(rootDir, 'scripts', name);
+}
+
 function pyScript(name, extra) {
   return () => {
-    const script = path.join(rootDir, 'scripts', name);
+    const script = resolveScript(name);
     if (!fs.existsSync(script)) {
-      console.error(`[rey] script not found: ${script}`);
+      console.error(`[rey] script not found: ${name} (checked package and ~/.config/opencode)`);
       process.exit(1);
     }
     const py = isWin ? 'python' : 'python3';
@@ -78,17 +91,17 @@ if (args.includes('--help') || args.includes('-h') || args.includes('-?') || cmd
 switch (cmd) {
   case 'install':
     if (isWin) {
-      run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', path.join(rootDir, 'install.ps1'), ...rest]);
+      run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', resolveScript('install.ps1'), ...rest]);
     } else {
-      run('bash', [path.join(rootDir, 'install.sh'), ...rest]);
+      run('bash', [resolveScript('install.sh'), ...rest]);
     }
     break;
 
   case 'verify':
     if (isWin) {
-      run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', path.join(rootDir, 'verify.ps1'), ...rest]);
+      run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', resolveScript('verify.ps1'), ...rest]);
     } else {
-      run('bash', [path.join(rootDir, 'verify.sh'), ...rest]);
+      run('bash', [resolveScript('verify.sh'), ...rest]);
     }
     break;
 
@@ -143,8 +156,7 @@ switch (cmd) {
   case 'switch':
     if (isWin) {
       // Interactive menu mode (no provider arg) or direct: rey switch-provider <provider>
-      const switchScript =
-        path.join(rootDir, 'scripts', 'switch-provider.ps1');
+      const switchScript = resolveScript('switch-provider.ps1');
       if (fs.existsSync(switchScript)) {
         const provider = rest[0];
         const pass = provider && ['kilo', 'opencode', 'openrouter'].includes(provider)
@@ -221,9 +233,10 @@ switch (cmd) {
     // No command = launch monitor. Unknown command = error.
     if (!cmd) {
       if (isWin) {
-        run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', path.join(rootDir, 'scripts', 'rey-monitor.ps1'), ...args]);
+        const psScript = resolveScript('rey-monitor.ps1');
+        run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', psScript, ...args]);
       } else {
-        const monitorPy = path.join(rootDir, 'scripts', 'rey-monitor.py');
+        const monitorPy = resolveScript('rey-monitor.py');
         run('python3', [monitorPy, ...args]);
       }
     } else {

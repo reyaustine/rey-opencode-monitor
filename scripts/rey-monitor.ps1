@@ -15,6 +15,45 @@ $TICK_MS       = 200
 $REFRESH_EVERY = 15   # ticks between status refreshes (~3s for fast live updates)
 $MAX_THREADS   = 7    # threads displayed in sub-agents pane
 
+# Dynamic path resolution (auto-adapts across ANY user profile e.g. adminre, rey.echavez)
+$global:OpenCodeConfDir = Join-Path $HOME '.config\opencode'
+if (-not (Test-Path -LiteralPath $global:OpenCodeConfDir) -and $PSScriptRoot) {
+  $candidate = Split-Path -Parent $PSScriptRoot
+  if (Test-Path -LiteralPath (Join-Path $candidate 'opencode.jsonc')) {
+    $global:OpenCodeConfDir = $candidate
+  }
+}
+
+$global:OpenCodeScriptDir = if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'rey-health.py'))) {
+  $PSScriptRoot
+} elseif (Test-Path -LiteralPath (Join-Path $global:OpenCodeConfDir 'scripts\rey-health.py')) {
+  Join-Path $global:OpenCodeConfDir 'scripts'
+} elseif ($env:APPDATA -and (Test-Path -LiteralPath (Join-Path $env:APPDATA 'npm\node_modules\@reyaustine\rey-opencode-monitor\scripts\rey-health.py'))) {
+  Join-Path $env:APPDATA 'npm\node_modules\@reyaustine\rey-opencode-monitor\scripts'
+} else {
+  Join-Path $HOME '.config\opencode\scripts'
+}
+
+function Get-ReyScript([string]$name) {
+  if ($global:OpenCodeScriptDir -and (Test-Path -LiteralPath (Join-Path $global:OpenCodeScriptDir $name))) {
+    return (Join-Path $global:OpenCodeScriptDir $name)
+  }
+  if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot $name))) {
+    return (Join-Path $PSScriptRoot $name)
+  }
+  $userScript = Join-Path $HOME ".config\opencode\scripts\$name"
+  if (Test-Path -LiteralPath $userScript) {
+    return $userScript
+  }
+  if ($env:APPDATA) {
+    $npmScript = Join-Path $env:APPDATA "npm\node_modules\@reyaustine\rey-opencode-monitor\scripts\$name"
+    if (Test-Path -LiteralPath $npmScript) {
+      return $npmScript
+    }
+  }
+  return $null
+}
+
 $spin  = @('|', '/', '-', '\')
 $state = @{
   Tick         = 0
@@ -96,8 +135,8 @@ function Refresh-Status {
 
   # 2. Read Global Config fast directly from JSON / JSONC (<5ms)
   try {
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-    $confDir = Split-Path -Parent $scriptDir
+    $confDir = $global:OpenCodeConfDir
+    $scriptDir = $global:OpenCodeScriptDir
     $cfgJson = Join-Path $confDir 'opencode.json'
     $cfgJsonc = Join-Path $confDir 'opencode.jsonc'
 
@@ -170,11 +209,11 @@ function Refresh-Status {
 
   # 4. Read Live Session and Sub-agent Telemetry from opencode.db via python helper (<50ms)
   try {
-    $pyScript = Join-Path $scriptDir 'rey-state.py'
-    if (-not (Test-Path -LiteralPath $pyScript)) {
-      $pyScript = Join-Path $scriptDir 'jarvis-state.py'
+    $pyScript = Get-ReyScript 'rey-state.py'
+    if (-not $pyScript) {
+      $pyScript = Get-ReyScript 'jarvis-state.py'
     }
-    if (Test-Path -LiteralPath $pyScript) {
+    if ($pyScript -and (Test-Path -LiteralPath $pyScript)) {
       $pyOut = & python "$pyScript" 2>$null
       if ($pyOut) {
         $dbData = $pyOut | ConvertFrom-Json
@@ -372,7 +411,7 @@ function Refresh-Status {
     }
 
     # Check 3: opencode.db missing → report
-    $dbPath = Join-Path $HOME ".local" "share" "opencode" "opencode.db"
+    $dbPath = Join-Path $HOME '.local\share\opencode\opencode.db'
     if (-not (Test-Path -LiteralPath $dbPath)) {
       $diagLines += "opencode.db NOT FOUND (OpenCode not yet run?)"
     }
@@ -877,12 +916,8 @@ try {
           if ($key.Key -eq 'L') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $pyLogs = Join-Path $scriptDir 'rey-logs.py'
-            if (-not (Test-Path $pyLogs)) {
-              $pyLogs = Join-Path $HOME '.config\opencode\scripts\rey-logs.py'
-            }
-            if (Test-Path $pyLogs) {
+            $pyLogs = Get-ReyScript 'rey-logs.py'
+            if ($pyLogs -and (Test-Path -LiteralPath $pyLogs)) {
               & python "$pyLogs"
             }
             Refresh-Status
@@ -892,12 +927,8 @@ try {
           if ($key.Key -eq 'D') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $pyDeals = Join-Path $scriptDir 'rey-deals.py'
-            if (-not (Test-Path $pyDeals)) {
-              $pyDeals = Join-Path $HOME '.config\opencode\scripts\rey-deals.py'
-            }
-            if (Test-Path $pyDeals) {
+            $pyDeals = Get-ReyScript 'rey-deals.py'
+            if ($pyDeals -and (Test-Path -LiteralPath $pyDeals)) {
               & python "$pyDeals"
             }
             Refresh-Status
@@ -907,12 +938,8 @@ try {
           if ($key.Key -eq 'Q') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $pyQuota = Join-Path $scriptDir 'rey-quota.py'
-            if (-not (Test-Path $pyQuota)) {
-              $pyQuota = Join-Path $HOME '.config\opencode\scripts\rey-quota.py'
-            }
-            if (Test-Path $pyQuota) {
+            $pyQuota = Get-ReyScript 'rey-quota.py'
+            if ($pyQuota -and (Test-Path -LiteralPath $pyQuota)) {
               & python "$pyQuota"
             }
             Write-Host ""
@@ -933,12 +960,8 @@ try {
           if ($key.Key -eq 'O') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $pyOverride = Join-Path $scriptDir 'rey-override.py'
-            if (-not (Test-Path $pyOverride)) {
-              $pyOverride = Join-Path $HOME '.config\opencode\scripts\rey-override.py'
-            }
-            if (Test-Path $pyOverride) {
+            $pyOverride = Get-ReyScript 'rey-override.py'
+            if ($pyOverride -and (Test-Path -LiteralPath $pyOverride)) {
               & python "$pyOverride"
             }
             Refresh-Status
@@ -948,8 +971,7 @@ try {
           if ($key.Key -eq 'S') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $confDir = Split-Path -Parent $scriptDir
+            $confDir = $global:OpenCodeConfDir
 
             Write-Host ""
             Write-Host "  ============================================================" -ForegroundColor Cyan
@@ -982,14 +1004,8 @@ try {
               Write-Host "  Switching to: $providerLabel" -ForegroundColor Yellow
               Write-Host "  ─────────────────────────────" -ForegroundColor DarkGray
 
-              $switchPs = Join-Path $scriptDir 'switch-provider.ps1'
-              if (-not (Test-Path -LiteralPath $switchPs)) {
-                $switchPs = Join-Path $confDir 'switch-provider.ps1'
-              }
-              if (-not (Test-Path -LiteralPath $switchPs)) {
-                $switchPs = Join-Path $HOME 'switch-provider.ps1'
-              }
-              if (Test-Path -LiteralPath $switchPs) {
+              $switchPs = Get-ReyScript 'switch-provider.ps1'
+              if ($switchPs -and (Test-Path -LiteralPath $switchPs)) {
                 & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $switchPs -Provider $providerName
               } else {
                 Write-Host "  [!] switch-provider.ps1 not found." -ForegroundColor Red
@@ -1057,12 +1073,8 @@ try {
           if ($key.Key -eq 'H') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $pyHealth = Join-Path $scriptDir 'rey-health.py'
-            if (-not (Test-Path $pyHealth)) {
-              $pyHealth = Join-Path $HOME '.config\opencode\scripts\rey-health.py'
-            }
-            if (Test-Path $pyHealth) {
+            $pyHealth = Get-ReyScript 'rey-health.py'
+            if ($pyHealth -and (Test-Path -LiteralPath $pyHealth)) {
               & python "$pyHealth"
               Write-Host ""
               Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
@@ -1076,12 +1088,8 @@ try {
           if ($key.Key -eq 'W') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-            $pyHealth = Join-Path $scriptDir 'rey-health.py'
-            if (-not (Test-Path $pyHealth)) {
-              $pyHealth = Join-Path $HOME '.config\opencode\scripts\rey-health.py'
-            }
-            if (Test-Path $pyHealth) {
+            $pyHealth = Get-ReyScript 'rey-health.py'
+            if ($pyHealth -and (Test-Path -LiteralPath $pyHealth)) {
               & python "$pyHealth" "--whitelist"
               Write-Host ""
               Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
@@ -1099,12 +1107,8 @@ try {
     # 30-minute background health & discovery watchdog
     if (((Get-Date) - $script:lastHealthCheck).TotalMinutes -ge 30) {
       $script:lastHealthCheck = Get-Date
-      $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
-      $pyHealth = Join-Path $scriptDir 'rey-health.py'
-      if (-not (Test-Path -LiteralPath $pyHealth)) {
-        $pyHealth = Join-Path $HOME '.config\opencode\scripts\rey-health.py'
-      }
-      if (Test-Path -LiteralPath $pyHealth) {
+      $pyHealth = Get-ReyScript 'rey-health.py'
+      if ($pyHealth -and (Test-Path -LiteralPath $pyHealth)) {
         Start-Process -FilePath "python" -ArgumentList "`"$pyHealth`"", "--quiet" -WindowStyle Hidden
         Add-Log "[HEALTH] 30m background watchdog started"
       }

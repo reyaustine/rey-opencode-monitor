@@ -179,15 +179,42 @@ def _apply_model_systemwide(full_model_id, verbose=True):
             except Exception:
                 pass
 
+def get_base_default_model():
+    """Gets the baseline default model from configs or defaults."""
+    if os.path.exists(OVERRIDE_LOCK):
+        try:
+            with open(OVERRIDE_LOCK, "r", encoding="utf-8") as f:
+                ldata = json.load(f)
+                if ldata.get("original_model"):
+                    return ldata["original_model"]
+        except Exception:
+            pass
+
+    for path in [CONFIG_JSON, CONFIG_JSONC]:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                clean = clean_json_text(content)
+                data = json.loads(clean)
+                if data.get("model"):
+                    return data["model"]
+            except Exception:
+                pass
+
+    return "openrouter/google/gemma-4-31b-it:free"
+
 def set_override(full_model_id):
     """Enforces a single model override everywhere."""
     provider_id, raw_model_id = parse_model_string(full_model_id)
+    original_model = get_base_default_model()
 
     lock_data = {
         "mode": "single",
         "model": full_model_id,
         "provider": provider_id,
         "raw_model": raw_model_id,
+        "original_model": original_model,
         "active": True
     }
     try:
@@ -265,6 +292,7 @@ def set_rotation(codes_or_str):
             pass
 
     first = pool[0]
+    original_model = get_base_default_model()
     lock_data = {
         "mode": "rotate",
         "active": True,
@@ -273,6 +301,7 @@ def set_rotation(codes_or_str):
         "model": first["model"],
         "provider": first["provider"],
         "raw_model": first["raw_model"],
+        "original_model": original_model,
         "last_prompt_id": latest_prompt_id,
         "pending_rotation": False
     }
@@ -301,12 +330,33 @@ def set_rotation(codes_or_str):
     return True
 
 def clear_override():
-    """Removes the active override or rotation lock."""
+    """Removes the active override or rotation lock and immediately restores the default model."""
+    original_model = "openrouter/google/gemma-4-31b-it:free"
+    had_lock = False
     if os.path.exists(OVERRIDE_LOCK):
-        os.remove(OVERRIDE_LOCK)
-        print("[+] Model override and rotation cleared. OpenCode will use config defaults.")
+        had_lock = True
+        try:
+            with open(OVERRIDE_LOCK, "r", encoding="utf-8") as f:
+                ldata = json.load(f)
+                if ldata.get("original_model"):
+                    original_model = ldata["original_model"]
+        except Exception:
+            pass
+        try:
+            os.remove(OVERRIDE_LOCK)
+        except Exception:
+            pass
+
+    # Immediately apply original model systemwide (opencode.json, opencode.jsonc, opencode.db, desktop dat)
+    _apply_model_systemwide(original_model, verbose=False)
+    if had_lock:
+        print("\n" + "=" * 75)
+        print(" [+] MODEL OVERRIDE / ROTATION CLEARED!")
+        print(f" [*] Restored default model: {original_model}")
+        print(" [*] Updated opencode.json, opencode.jsonc, active sessions, and IDE defaults.")
+        print("=" * 75 + "\n")
     else:
-        print("[i] No active model override was set.")
+        print(f"\n[i] No active override lock was set. Ensured default model: {original_model}")
 
 def parse_multi_input(text):
     """Checks if input represents a multi-model rotation request."""

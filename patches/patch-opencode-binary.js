@@ -109,9 +109,10 @@ try {
 
 // 2. Patch OpenCode Desktop IDE app.asar
 function patchDesktopAsar() {
+  const userHome = process.env.USERPROFILE || process.env.HOME || '';
   const asarPaths = [
     path.join(process.env.LOCALAPPDATA || '', 'Programs', '@opencode-aidesktop', 'resources', 'app.asar'),
-    'C:/Users/rey.echavez/AppData/Local/Programs/@opencode-aidesktop/resources/app.asar'
+    path.join(userHome, 'AppData', 'Local', 'Programs', '@opencode-aidesktop', 'resources', 'app.asar')
   ];
 
   let asarPath = null;
