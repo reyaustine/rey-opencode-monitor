@@ -32,10 +32,38 @@ CLEAR = "\033[2J\033[H"
 HOME = os.path.expanduser("~")
 CONFIG_DIR = os.path.join(HOME, ".config", "opencode")
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DESKTOP_DIR = os.path.join(os.environ.get("APPDATA", ""), "ai.opencode.desktop")
-DB_PATH = os.path.join(HOME, ".local", "share", "opencode", "opencode.db")
 
-# Target configuration files
+
+def _get_desktop_dir() -> str:
+    """Cross-platform OpenCode Desktop app data dir."""
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA", "")
+        return os.path.join(appdata, "ai.opencode.desktop") if appdata else ""
+    elif sys.platform == "darwin":
+        return os.path.join(HOME, "Library", "Application Support", "ai.opencode.desktop")
+    else:
+        xdg = os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config"))
+        return os.path.join(xdg, "ai.opencode.desktop")
+
+
+def _resolve_db_path() -> str:
+    """Cross-platform OpenCode DB resolver.
+    macOS: ~/Library/Application Support/opencode/opencode.db
+    Linux/Windows: ~/.local/share/opencode/opencode.db
+    """
+    candidates = [
+        os.path.join(HOME, "Library", "Application Support", "opencode", "opencode.db"),
+        os.path.join(HOME, ".local", "share", "opencode", "opencode.db"),
+        os.path.join(os.environ.get("USERPROFILE", HOME), ".local", "share", "opencode", "opencode.db"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return os.path.join(HOME, ".local", "share", "opencode", "opencode.db")
+
+
+DESKTOP_DIR = _get_desktop_dir()
+DB_PATH = _resolve_db_path()
 CONFIG_PATHS = [
     os.path.join(CONFIG_DIR, "opencode.jsonc"),
     os.path.join(CONFIG_DIR, "opencode.json"),

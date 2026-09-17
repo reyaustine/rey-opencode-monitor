@@ -25,11 +25,31 @@ if hasattr(sys.stdout, "reconfigure"):
 HOME = os.path.expanduser("~")
 CONFIG_DIR = os.path.join(HOME, ".config", "opencode")
 CIRCUIT_FILE = os.path.join(CONFIG_DIR, "circuit-breaker.json")
-DB_PATH = os.path.join(HOME, ".local", "share", "opencode", "opencode.db")
 JSONC_PATH = os.path.join(CONFIG_DIR, "opencode.jsonc")
 JSON_PATH = os.path.join(CONFIG_DIR, "opencode.json")
 FALLBACK_PATH = os.path.join(CONFIG_DIR, "model-fallback.json")
 ROSTER_PATH = os.path.join(CONFIG_DIR, "roster.json")
+
+
+def _resolve_db_path() -> Optional[str]:
+    """Cross-platform OpenCode DB resolver.
+    macOS: ~/Library/Application Support/opencode/opencode.db
+    Linux/Windows: ~/.local/share/opencode/opencode.db
+    """
+    user_home = os.path.expanduser("~")
+    candidates = [
+        os.path.join(user_home, "Library", "Application Support", "opencode", "opencode.db"),
+        os.path.join(user_home, ".local", "share", "opencode", "opencode.db"),
+        os.path.join(os.environ.get("USERPROFILE", user_home), ".local", "share", "opencode", "opencode.db"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    # Return Linux default even if not found (will be caught by exists() checks)
+    return os.path.join(user_home, ".local", "share", "opencode", "opencode.db")
+
+
+DB_PATH = _resolve_db_path()
 
 ERROR_THRESHOLD = 5
 WINDOW_MS = 2 * 3600 * 1000  # Rolling 2-hour window

@@ -92,6 +92,9 @@ echo ""
 echo "[*] Registering global 'rey' CLI command..."
 INSTALLED_BIN=false
 
+# Always ensure ~/.local/bin exists (user-owned, works on macOS and Linux without sudo)
+mkdir -p "$HOME/.local/bin"
+
 # Try linking into standard bin directories if writable
 for bin_dir in "$HOME/.local/bin" "$HOME/bin" "/usr/local/bin"; do
   if [ -d "$bin_dir" ] && [ -w "$bin_dir" ]; then
@@ -103,9 +106,15 @@ for bin_dir in "$HOME/.local/bin" "$HOME/bin" "/usr/local/bin"; do
   fi
 done
 
+# Ensure shell profiles exist (create .zshrc on fresh macOS zsh-only machines)
+if [ ! -f "$HOME/.zshrc" ] && [ "$(basename "$SHELL")" = "zsh" ]; then
+  touch "$HOME/.zshrc"
+  echo "  [+] Created $HOME/.zshrc (fresh zsh shell)"
+fi
+
 # Also ensure ~/.config/opencode/scripts is added to shell profiles
 SHELL_PROFILES=("$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc")
-EXPORT_LINE='export PATH="$HOME/.config/opencode/scripts:$PATH"'
+EXPORT_LINE='export PATH="$HOME/.local/bin:$HOME/.config/opencode/scripts:$PATH"'
 
 for prof in "${SHELL_PROFILES[@]}"; do
   if [ -f "$prof" ]; then

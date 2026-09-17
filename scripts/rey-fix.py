@@ -29,8 +29,26 @@ SCRIPTS_DIR = os.path.join(CONFIG_DIR, "scripts")
 SWARM_DIR = os.path.join(HOME, "opencode-swarm-pack")
 SWARM_CONFIGS = os.path.join(SWARM_DIR, "configs")
 SWARM_SCRIPTS = os.path.join(SWARM_DIR, "scripts")
-AUTH_PATH = os.path.join(HOME, ".local", "share", "opencode", "auth.json")
-DB_PATH = os.path.join(HOME, ".local", "share", "opencode", "opencode.db")
+
+
+def _resolve_opencode_data_path(filename: str) -> str:
+    """Cross-platform OpenCode data dir resolver.
+    macOS: ~/Library/Application Support/opencode/<filename>
+    Linux/Windows: ~/.local/share/opencode/<filename>
+    """
+    candidates = [
+        os.path.join(HOME, "Library", "Application Support", "opencode", filename),
+        os.path.join(HOME, ".local", "share", "opencode", filename),
+        os.path.join(os.environ.get("USERPROFILE", HOME), ".local", "share", "opencode", filename),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return os.path.join(HOME, ".local", "share", "opencode", filename)
+
+
+AUTH_PATH = _resolve_opencode_data_path("auth.json")
+DB_PATH = _resolve_opencode_data_path("opencode.db")
 
 CONFIG_FILES = ["opencode.jsonc", "opencode.json", "model-fallback.json", "skill-routing.yaml"]
 REQUIRED_SCRIPTS = [

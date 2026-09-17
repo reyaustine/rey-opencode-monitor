@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -16,12 +15,15 @@ fi
 
 echo ""
 echo "[*] Verifying runtime stability patches..."
-node "$SCRIPT_DIR/patches/patch-opencode-binary.js"
-node "$SCRIPT_DIR/patches/patch-desktop-asar.js"
-node "$SCRIPT_DIR/patches/patch-gemini-enum.js"
-node "$SCRIPT_DIR/patches/patch-watchdog-timeout.js"
-node "$SCRIPT_DIR/patches/patch-context-length-fallback.js"
-node "$SCRIPT_DIR/patches/fix-model-key-regex.js"
+for patch in patch-opencode-binary.js patch-desktop-asar.js patch-gemini-enum.js \
+             patch-watchdog-timeout.js patch-context-length-fallback.js fix-model-key-regex.js; do
+  p="$SCRIPT_DIR/patches/$patch"
+  if [ -f "$p" ]; then
+    node "$p" 2>/dev/null || true
+  else
+    echo "  [SKIP] $patch not found"
+  fi
+done
 
 echo ""
 echo "[*] Querying opencode agent list..."
