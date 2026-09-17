@@ -311,6 +311,9 @@ class ReyMonitor:
             'tokens_comp': '0',
             'tokens_cache': '0',
             'tokens_cost': '$0.00',
+            'tokens_cost_num': 0.0,
+            'tokens_num': 0,
+            'tokens_source': 'db',
             'token_models': [],
             'last_refresh': 'never'
         }

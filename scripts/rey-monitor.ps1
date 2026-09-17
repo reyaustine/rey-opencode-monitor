@@ -663,7 +663,7 @@ function Draw([int]$frame, [bool]$working) {
     $level = [Math]::Max(0, [Math]::Min(20, $level))
     $bar = ('#' * $level).PadRight(20, '.')
 
-    $healthColor = if ($state.Health -like '*NOMINAL*') { 'Green' } elseif ($state.Health -like '*CHECKING*') { 'Yellow' } else { 'Red' }
+    $healthColor = if ($state.Health -like '*NOMINAL*') { 'Green' } elseif ($state.Health -like '*CHECKING*' -or $state.Health -like '*CREDIT LOW*') { 'Yellow' } else { 'Red' }
     $actColor    = if ($working) { 'Yellow' } else { 'Green' }
     $tag         = if ($working) { '[ THINKING ]' } else { '[ STANDBY ]' }
     $headColor   = if ($working) { 'Yellow' } else { 'Cyan' }
