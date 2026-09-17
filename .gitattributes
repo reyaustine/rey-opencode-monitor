@@ -1,11 +1,11 @@
-﻿# R.E.Y. OpenCode Monitor — Git Line Ending Policy
+# R.E.Y. OpenCode Monitor - Git Line Ending Policy
 # Ensures shell scripts and Python files always use LF (Unix line endings)
 # so they work correctly on macOS and Linux fresh installs.
 
 # Default: auto-detect text files and normalize
 * text=auto
 
-# Shell scripts — MUST be LF always, even on Windows checkout
+# Shell scripts - MUST be LF always, even on Windows checkout
 *.sh    text eol=lf
 *.bash  text eol=lf
 
@@ -13,10 +13,10 @@
 scripts/rey    text eol=lf
 scripts/jarvis text eol=lf
 
-# Python scripts — LF to ensure cross-platform consistency
+# Python scripts - LF to ensure cross-platform consistency
 *.py    text eol=lf
 
-# JavaScript/JSON — LF (Node.js shebang scripts need LF)
+# JavaScript/JSON - LF (Node.js shebang scripts need LF)
 *.js    text eol=lf
 *.json  text eol=lf
 *.jsonc text eol=lf
@@ -26,12 +26,12 @@ scripts/jarvis text eol=lf
 # Markdown and docs
 *.md    text eol=lf
 
-# Windows-only scripts — keep CRLF on Windows checkout (they need it)
+# Windows-only scripts - keep CRLF on Windows checkout (they need it)
 *.ps1   text eol=crlf
 *.cmd   text eol=crlf
 *.bat   text eol=crlf
 
-# Binary files — never touch
+# Binary files - never touch
 *.png   binary
 *.jpg   binary
 *.gif   binary
