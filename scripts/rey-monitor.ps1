@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     OpenCode Free Model Provider Switcher
 .DESCRIPTION
