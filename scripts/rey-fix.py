@@ -11,6 +11,7 @@ import json
 import re
 import shutil
 import subprocess
+import sqlite3
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -242,6 +243,34 @@ def check_database():
     if os.path.exists(DB_PATH):
         size = os.path.getsize(DB_PATH)
         ok(f"opencode.db present ({size:,} bytes)")
+        # Verify session model JSON integrity
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=5)
+            c = conn.cursor()
+            c.execute("SELECT id, model FROM session WHERE model IS NOT NULL")
+            bad_rows = []
+            for sid, m_val in c.fetchall():
+                try:
+                    json.loads(m_val)
+                except Exception:
+                    bad_rows.append((sid, m_val))
+            if bad_rows:
+                fixed_count = 0
+                for sid, m_val in bad_rows:
+                    parts = m_val.split("/", 1)
+                    prov = parts[0]
+                    mod_id = parts[1] if len(parts) > 1 else parts[0]
+                    repaired = json.dumps({"id": mod_id, "providerID": prov, "variant": "default"})
+                    c.execute("UPDATE session SET model = ? WHERE id = ?", (repaired, sid))
+                    fixed_count += 1
+                conn.commit()
+                fixed(f"Repaired {fixed_count} session model entries with non-JSON values in opencode.db")
+            else:
+                ok("Session model JSON integrity verified (0 errors)")
+            conn.close()
+        except Exception as e:
+            warn(f"Database session model integrity check note: {e}")
+
         # Verify rey-state.py can read it
         state_script = os.path.join(SCRIPTS_DIR, "rey-state.py")
         if os.path.exists(state_script):
