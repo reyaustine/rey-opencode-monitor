@@ -945,12 +945,12 @@ def run_health_check(quiet=False, auto_whitelist=False):
             add_models_to_whitelist(new_free_models)
         elif new_free_models and not quiet and sys.stdin.isatty():
             print(f"\n  {CYAN}{'─' * 80}{RESET}")
-            print(f"  {BOLD}💡 Press [W] to auto-add all {len(new_free_models)} free models to OpenCode whitelist{RESET}")
+            print(f"  {BOLD}💡 Press [W] or [A] to auto-add all {len(new_free_models)} free models to OpenCode whitelist{RESET}")
             print(f"     Press [Enter] to skip and return to monitor")
             print(f"  {CYAN}{'─' * 80}{RESET}")
             try:
-                ans = input("  Choice [W/Enter]: ").strip().upper()
-                if ans == "W":
+                ans = input("  Choice [W/A/Enter]: ").strip().upper()
+                if ans in ("W", "A"):
                     add_models_to_whitelist(new_free_models)
             except (KeyboardInterrupt, EOFError):
                 pass
@@ -964,5 +964,9 @@ def run_health_check(quiet=False, auto_whitelist=False):
 
 if __name__ == "__main__":
     quiet_mode = "--quiet" in sys.argv or "-q" in sys.argv
-    do_whitelist = any(x in sys.argv for x in ["--whitelist", "-w", "--add", "whitelist"])
-    run_health_check(quiet=quiet_mode, auto_whitelist=do_whitelist)
+    do_whitelist = any(x in sys.argv for x in ["--whitelist", "-w", "--add", "--auto-whitelist", "-a", "whitelist"])
+    if any(x in sys.argv for x in ["--all-models", "-m", "--models", "models"]):
+        import subprocess
+        subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-models.py"), "--list"])
+    else:
+        run_health_check(quiet=quiet_mode, auto_whitelist=do_whitelist)

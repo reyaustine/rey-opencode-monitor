@@ -627,7 +627,7 @@ class ReyMonitor:
             (f"   activity      : {self.state['activity']}", act_color),
             (f"   status        : {self.state['health']}", health_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
-            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health)", GRAY),
+            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | S: switch | T: tokens | L: logs | D: deals | O: override | H: health | M: models | W: whitelist)", GRAY),
         ]
 
         if cols >= 95:
@@ -800,16 +800,65 @@ class ReyMonitor:
                         sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
                         sys.stdout.flush()
                         self.refresh_status()
+                    elif ch.lower() == 's':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-switch.py")])
+                        except Exception:
+                            pass
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
                     elif ch.lower() == 'h':
                         key_reader.restore()
                         sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
                         sys.stdout.flush()
                         try:
-                            import rey_health
-                            rey_health.run_health_check(quiet=False)
-                        except Exception:
                             import subprocess
                             subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-health.py")])
+                        except Exception:
+                            pass
+                        print("\n  Press Enter to return to R.E.Y. Monitor...")
+                        try:
+                            input()
+                        except Exception:
+                            pass
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.last_health_check = time.time()
+                        self.refresh_status()
+                    elif ch.lower() == 'm':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-models.py"), "--list"])
+                        except Exception:
+                            pass
+                        print("\n  Press Enter to return to R.E.Y. Monitor...")
+                        try:
+                            input()
+                        except Exception:
+                            pass
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
+                    elif ch.lower() in ('w', 'a'):
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-health.py"), "--whitelist"])
+                        except Exception:
+                            pass
                         print("\n  Press Enter to return to R.E.Y. Monitor...")
                         try:
                             input()

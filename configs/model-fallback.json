@@ -441,5 +441,23 @@
         "openrouter/google/gemma-4-31b-it:free"
       ]
     }
-  }
+  },
+  "fallbackModels": [
+    "kilo/kilo-auto/free",
+    "kilo/poolside/laguna-xs-2.1:free",
+    "kilo/nex-agi/nex-n2.5-pro:free",
+    "kilo/nvidia/nemotron-3.5-lightning:free",
+    "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
+    "kilo/cohere/north-mini-code:free",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/google/gemma-4-26b-a4b-it:free",
+    "openrouter/openrouter/free",
+    "openrouter/nvidia/nemotron-3.5-lightning:free",
+    "openrouter/poolside/laguna-xs-2.1:free",
+    "openrouter/inclusionai/ling-3.0-flash-fin:free",
+    "openrouter/cohere/north-mini-code:free",
+    "mistral/codestral-latest",
+    "gemini/gemini-2.5-flash",
+    "opencode/big-pickle"
+  ]
 }

@@ -754,7 +754,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | W: whitelist | ?: help)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | M: models | W: whitelist | ?: help)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -971,57 +971,15 @@ try {
           if ($key.Key -eq 'S') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
-            $confDir = $global:OpenCodeConfDir
-
-            Write-Host ""
-            Write-Host "  ============================================================" -ForegroundColor Cyan
-            Write-Host "   OpenCode Free Model Provider Switcher" -ForegroundColor Cyan
-            Write-Host "  ============================================================" -ForegroundColor Cyan
-            Write-Host ""
-            Write-Host "   [1] Kilo      - kilo.ai free models" -ForegroundColor White
-            Write-Host "   [2] OpenCode  - opencode built-in free" -ForegroundColor White
-            Write-Host "   [3] OpenRouter - openrouter.ai free" -ForegroundColor White
-            Write-Host "   [0] Cancel" -ForegroundColor DarkGray
-            Write-Host ""
-            Write-Host "  ============================================================" -ForegroundColor Cyan
-            Write-Host ""
-            $choice = Read-Host "  Select provider [0-3]"
-
-            $providerMap = @{
-              '1' = 'kilo'
-              '2' = 'opencode'
-              '3' = 'openrouter'
-            }
-
-            if ($providerMap.ContainsKey($choice)) {
-              $providerName = $providerMap[$choice]
-              $providerLabel = switch ($providerName) {
-                'kilo'      { 'Kilo (kilo.ai)' }
-                'opencode'  { 'OpenCode (built-in)' }
-                'openrouter'{ 'OpenRouter (openrouter.ai)' }
-              }
-              Write-Host ""
-              Write-Host "  Switching to: $providerLabel" -ForegroundColor Yellow
-              Write-Host "  ─────────────────────────────" -ForegroundColor DarkGray
-
+            $pySwitch = Get-ReyScript 'rey-switch.py'
+            if ($pySwitch -and (Test-Path -LiteralPath $pySwitch)) {
+              & python "$pySwitch"
+            } else {
               $switchPs = Get-ReyScript 'switch-provider.ps1'
               if ($switchPs -and (Test-Path -LiteralPath $switchPs)) {
-                & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $switchPs -Provider $providerName
-              } else {
-                Write-Host "  [!] switch-provider.ps1 not found." -ForegroundColor Red
+                & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $switchPs
               }
-              Write-Host ""
-              Write-Host "  Restart OpenCode to use the new provider." -ForegroundColor Yellow
-            } elseif ($choice -eq '0') {
-              Write-Host ""
-              Write-Host "  Cancelled." -ForegroundColor DarkGray
-            } else {
-              Write-Host ""
-              Write-Host "  Invalid choice." -ForegroundColor Red
             }
-            Write-Host ""
-            Write-Host "  Press any key to return..." -ForegroundColor DarkGray
-            try { [Console]::ReadKey($true) | Out-Null } catch { }
             Refresh-Status
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
@@ -1037,12 +995,13 @@ try {
             Write-Host "   X .............. Quit R.E.Y. Monitor" -ForegroundColor White
             Write-Host "   Q .............. Check provider quota & rate limits" -ForegroundColor White
             Write-Host "   T .............. Toggle Token Fleet / Fleet view" -ForegroundColor White
-            Write-Host "   S .............. Switch Provider (Kilo/OpenCode/OpenRouter)" -ForegroundColor White
+            Write-Host "   S .............. Switch Provider (Primary/Secondary & IDE Visibility)" -ForegroundColor White
             Write-Host "   L .............. View session logs" -ForegroundColor White
             Write-Host "   D .............. View OpenRouter deals" -ForegroundColor White
             Write-Host "   O .............. Model override (lock/rotation)" -ForegroundColor White
             Write-Host "   H .............. Fleet health watchdog" -ForegroundColor White
-            Write-Host "   W .............. Auto-whitelist discovered free models" -ForegroundColor White
+            Write-Host "   M .............. Browse live free models across providers" -ForegroundColor White
+            Write-Host "   W / A .......... Auto-whitelist discovered free models" -ForegroundColor White
             Write-Host "   ? .............. This help screen" -ForegroundColor White
 
             Write-Host "  ===============================================" -ForegroundColor Cyan
@@ -1085,7 +1044,21 @@ try {
             try { [Console]::Clear() } catch { Clear-Host }
             try { [Console]::CursorVisible = $false } catch { }
           }
-          if ($key.Key -eq 'W') {
+          if ($key.Key -eq 'M') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $pyModels = Get-ReyScript 'rey-models.py'
+            if ($pyModels -and (Test-Path -LiteralPath $pyModels)) {
+              & python "$pyModels" "--list"
+              Write-Host ""
+              Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
+              try { [Console]::ReadKey($true) | Out-Null } catch { }
+            }
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'W' -or $key.Key -eq 'A') {
             try { [Console]::CursorVisible = $true } catch { }
             try { [Console]::Clear() } catch { Clear-Host }
             $pyHealth = Get-ReyScript 'rey-health.py'
