@@ -22,6 +22,7 @@ By distributing work across agents with distinct underlying model architectures 
 | **`@critic`** | Stress-testing & Flaw Discovery | `openrouter/liquid/lfm-2.5-2.6b:free` | Liquid |
 | **`@docs`** | Documentation, Specs & Changelogs | `openrouter/nex-agi/nex-n2.5-pro:free` | Nex-AGI |
 | **`@designer`** | UI/UX Layouts & Component Design | `openrouter/thinkingmachines/inkling:free` | ThinkingMachines |
+| **`@all-models`** | Show All Models | `openrouter/all-models` | All Providers |
 
 ---
 

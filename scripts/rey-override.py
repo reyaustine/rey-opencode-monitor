@@ -434,7 +434,44 @@ def interactive_menu():
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         arg = sys.argv[1]
-        if arg in ("--clear", "-c", "clear"):
+        if arg in ("--help", "-h", "help"):
+            print("\n  R.E.Y. // Model Override CLI")
+            print("  Usage: rey override [option | model_code | model_id]")
+            print("\n  Options:")
+            print("    --status, -s     Show current active model override lock")
+            print("    --clear, -c      Clear active override lock")
+            print("    --rotate, -r     Rotate between multiple models (e.g. rey override -r 1 4 7)")
+            print("    --page2, -p2     Show extended model list (A-Z)")
+            print("    --menu, -m       Launch interactive menu")
+            print("\n  Examples:")
+            print("    rey override 7                          # Lock to Kilo Code Auto")
+            print("    rey override openrouter/google/gemma... # Lock by model ID")
+            print("    rey override --clear                    # Clear lock")
+            print("    rey override --status                   # View lock status\n")
+            sys.exit(0)
+        elif arg in ("--status", "-s", "status"):
+            current_lock = None
+            if os.path.exists(OVERRIDE_LOCK):
+                try:
+                    with open(OVERRIDE_LOCK, "r", encoding="utf-8") as f:
+                        ldata = json.load(f)
+                        if ldata.get("active"):
+                            if ldata.get("mode") == "rotate":
+                                pool = ldata.get("pool", [])
+                                curr_idx = ldata.get("current_index", 0)
+                                flow = " -> ".join(f"[{p.get('code','?')}]" + ("*" if i == curr_idx else "") for i, p in enumerate(pool))
+                                curr_model = ldata.get("model", "")
+                                current_lock = f"[ROTATION POOL: {flow}] Current: {curr_model}"
+                            else:
+                                current_lock = ldata.get("model")
+                except Exception:
+                    pass
+            if current_lock:
+                print(f"\n  [LOCK ACTIVE] Model: {current_lock}\n")
+            else:
+                print("\n  [INFO] No active model override lock. OpenCode is using defaults.\n")
+            sys.exit(0)
+        elif arg in ("--clear", "-c", "clear"):
             clear_override()
         elif arg in ("--menu", "-m", "menu"):
             interactive_menu()
@@ -452,6 +489,9 @@ if __name__ == "__main__":
             set_override(PAGE1_MODELS[arg][0])
         elif arg.upper() in PAGE2_MODELS:
             set_override(PAGE2_MODELS[arg.upper()][0])
+        elif arg.startswith("-"):
+            print(f"\n[!] Unknown option: {arg}. Run 'rey override --help' for usage.\n")
+            sys.exit(1)
         else:
             set_override(arg)
     else:

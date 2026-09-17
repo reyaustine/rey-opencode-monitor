@@ -47,6 +47,33 @@ function pyScript(name, extra) {
 const cmd = args.find(a => !a.startsWith('-')) || '';
 const rest = args.filter(a => a !== cmd);
 
+// Help handling before running any command
+if (args.includes('--help') || args.includes('-h') || args.includes('-?') || cmd === 'help') {
+  console.log('');
+  console.log('  R.E.Y. // Runtime Execution & Yield Monitor');
+  console.log('  OpenCode Swarm Load Balancer & Fleet Commander');
+  console.log('');
+  console.log('  Usage: rey [command] [options]');
+  console.log('');
+  console.log('  Commands:');
+  console.log('    status           One-line or JSON fleet status (--json)');
+  console.log('    health           Audit provider gateways & live free/discounted models (--quiet)');
+  console.log('    quota            Live multi-provider rate limits, credit balance & failover advice');
+  console.log('    models           Browse all allowlisted & discovered models (--list, --json)');
+  console.log('    fix, doctor      Run diagnostic checks & auto-repair configurations');
+  console.log('    override         Lock or rotate IDE default model across all configs/DB/sessions');
+  console.log('    roster           Auto-select specialized optimal models for subagent roles');
+  console.log('    switch-provider  Switch primary provider (kilo | opencode | openrouter)');
+  console.log('    deals            Browse active OpenRouter promotional discounted models');
+  console.log('    logs             Stream & filter OpenCode runtime activity & fallback logs');
+  console.log('    deploy           Deploy configs, instructions, & commands into OpenCode');
+  console.log('    verify           Run binary & runtime patch verification suite');
+  console.log('    install          Run system installer & dependencies setup');
+  console.log('    (no command)     Launch the interactive real-time R.E.Y. HUD Terminal Monitor');
+  console.log('');
+  process.exit(0);
+}
+
 switch (cmd) {
   case 'install':
     if (isWin) {
@@ -54,6 +81,18 @@ switch (cmd) {
     } else {
       run('bash', [path.join(rootDir, 'install.sh'), ...rest]);
     }
+    break;
+
+  case 'verify':
+    if (isWin) {
+      run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', path.join(rootDir, 'verify.ps1'), ...rest]);
+    } else {
+      run('bash', [path.join(rootDir, 'verify.sh'), ...rest]);
+    }
+    break;
+
+  case 'roster':
+    pyScript('rey-roster.py', rest)();
     break;
 
   case 'health':
@@ -187,8 +226,8 @@ switch (cmd) {
       console.log('  Unknown command: ' + cmd);
       console.log('');
       console.log('  Usage: rey [command]');
-      console.log('    status | health | quota | models | fix | logs | deals | override');
-      console.log('    switch-provider | deploy | install');
+      console.log('    status | health | quota | models | fix | override | roster');
+      console.log('    switch-provider | deals | logs | deploy | verify | install');
       console.log('    (no command) -> start the R.E.Y. Monitor');
       console.log('');
       process.exit(1);

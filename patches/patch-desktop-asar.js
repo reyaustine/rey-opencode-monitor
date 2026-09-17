@@ -32,12 +32,16 @@ const chunkSize = 16 * 1024 * 1024;
 const buf = Buffer.alloc(chunkSize);
 const targetBuf = Buffer.from(target, 'utf8');
 const replBuf = Buffer.from(replacement, 'utf8');
+const altReplBuf = Buffer.from('RETRY_MAX_DELAY_NO_HEADERS = 3e3, RETRY_MAX_DELAY = 3000', 'utf8');
 
 let offset = 0;
 let patched = false;
 
 while (offset < stat.size) {
-  const read = fs.readSync(fd, buf, 0, Math.min(chunkSize, stat.size - offset), offset);
+  const bytesToRead = Math.min(chunkSize, stat.size - offset);
+  const read = fs.readSync(fd, buf, 0, bytesToRead, offset);
+  if (read <= 0) break;
+
   const idx = buf.indexOf(targetBuf);
   if (idx !== -1 && idx < read) {
     const writeOffset = offset + idx;
@@ -46,9 +50,12 @@ while (offset < stat.size) {
     patched = true;
     break;
   }
-  if (buf.indexOf(replBuf) !== -1) {
+  if (buf.indexOf(replBuf) !== -1 || buf.indexOf(altReplBuf) !== -1) {
     console.log('[OK] app.asar is already patched (3s clamp active).');
     patched = true;
+    break;
+  }
+  if (offset + read >= stat.size || read <= 100) {
     break;
   }
   offset += read - 100;

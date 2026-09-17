@@ -438,7 +438,8 @@ def run_health_check(quiet=False):
             if lmstudio_ok:
                 responsive.append(full_id)
             else:
-                unresponsive.append(full_id)
+                # LM Studio is optional — skip gracefully instead of marking unresponsive
+                pass
         else:
             responsive.append(full_id)
 
