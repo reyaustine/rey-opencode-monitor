@@ -627,7 +627,7 @@ class ReyMonitor:
             (f"   activity      : {self.state['activity']}", act_color),
             (f"   status        : {self.state['health']}", health_color),
             (f"   tokens used   : {self.state['tokens_total']}  (prompt: {self.state['tokens_prompt']} | compl: {self.state['tokens_comp']} | cache: {self.state['tokens_cache']})  [{self.state['tokens_cost']}]", CYAN),
-            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | T: tokens | L: logs | D: deals | O: override | H: health | M: models | W: whitelist)", GRAY),
+            (f"   last refresh  : {self.state['last_refresh']}  (Q: quit | S: switch | T: tokens | L: logs | D: deals | O: override | H: health | M: models | W: whitelist)", GRAY),
         ]
 
         if cols >= 95:
@@ -796,6 +796,19 @@ class ReyMonitor:
                         except Exception:
                             import subprocess
                             subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-override.py")])
+                        key_reader = KeyReader()
+                        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        self.refresh_status()
+                    elif ch.lower() == 's':
+                        key_reader.restore()
+                        sys.stdout.write(SHOW_CURSOR + CLEAR_SCREEN)
+                        sys.stdout.flush()
+                        try:
+                            import subprocess
+                            subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-switch.py")])
+                        except Exception:
+                            pass
                         key_reader = KeyReader()
                         sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN)
                         sys.stdout.flush()

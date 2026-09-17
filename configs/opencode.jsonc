@@ -1,17 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openrouter/google/gemma-4-31b-it:free",
-  "small_model": "opencode/big-pickle",
+  "model": "kilo/kilo-auto/free",
+  "small_model": "openrouter/google/gemma-4-26b-a4b-it:free",
   "instructions": [
     "~/.config/opencode/instructions/delegation.md"
   ],
   "enabled_providers": [
-    "kilo",
-    "opencode",
-    "openrouter",
     "gemini",
+    "kilo",
+    "lmstudio",
     "mistral",
-    "lmstudio"
+    "opencode",
+    "openrouter"
   ],
   "provider": {
     "gemini": {
@@ -103,9 +103,16 @@
         "codestral-2508"
       ]
     },
-    "openrouter": {
-      "name": "OpenRouter",
+        "openrouter": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OpenRouter (free & deals)",
+      "options": {
+        "baseURL": "https://openrouter.ai/api/v1",
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      },
       "whitelist": [
+        "google/gemma-4-31b-it:free",
+        "google/gemma-4-26b-a4b-it:free",
         "stealth/union-alpha",
         "inclusionai/ling-3.0-flash-vl:free",
         "nex-agi/nex-n2.5-mini:free",
@@ -124,11 +131,53 @@
         "nvidia/nemotron-3.5-content-safety:free",
         "nvidia/nemotron-3-ultra-550b-a55b:free",
         "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-        "google/gemma-4-26b-a4b-it:free",
-        "google/gemma-4-31b-it:free",
         "nvidia/nemotron-3-super-120b-a12b:free",
-        "free"
-      ]
+        "openrouter/free"
+      ],
+      "models": {
+        "google/gemma-4-31b-it:free": {
+          "name": "Google Gemma 4 31B (free)"
+        },
+        "google/gemma-4-26b-a4b-it:free": {
+          "name": "Google Gemma 4 26B (free)"
+        },
+        "stealth/union-alpha": {
+          "name": "Union Alpha (free)"
+        },
+        "inclusionai/ling-3.0-flash-vl:free": {
+          "name": "Ling 3.0 Flash VL (free)"
+        },
+        "nex-agi/nex-n2.5-mini:free": {
+          "name": "Nex-N2.5-Mini (free)"
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "name": "Nex-N2.5-Pro (free)"
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "name": "Dots3-Note Preview (free)"
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "name": "Liquid LFM 2.5 (free)"
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "name": "Nemotron 3.5 Lightning (free)"
+        },
+        "poolside/laguna-s-2.1:free": {
+          "name": "Poolside Laguna S 2.1 (free)"
+        },
+        "poolside/laguna-xs-2.1:free": {
+          "name": "Poolside Laguna XS 2.1 (free)"
+        },
+        "cohere/north-mini-code:free": {
+          "name": "Cohere North Mini Code (free)"
+        },
+        "thinkingmachines/inkling:free": {
+          "name": "ThinkingMachines Inkling (free)"
+        },
+        "openrouter/free": {
+          "name": "OpenRouter Auto Free"
+        }
+      }
     },
     "lmstudio": {
       "npm": "@ai-sdk/openai-compatible",
@@ -157,102 +206,102 @@
   "agent": {
     "build": {
       "mode": "all",
-      "model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "kilo/kilo-auto/free",
       "description": "Primary Swarm Lead & Builder. STRICT COMPLIANCE: Decomposes tasks and delegates across the specialized pipeline (@coder, @linter, @qa, @verifier).",
       "prompt": "You are the Primary Swarm Lead & Builder. STRICT MANDATORY DELEGATION POLICY: You MUST NEVER write code, lint, and test all in a single thread with one model. You are a coordinator and load balancer. You MUST decompose tasks and delegate across the specialized subagents using @mention:\n1. @coder for code implementation\n2. Parallel verification fan-out: @linter (syntax & lint), @qa (test runner), and @verifier (logic gaps & functional integrity)\n3. @reviewer for sign-off.\nFor exploring the repository, invoke @explore."
     },
     "explore": {
       "mode": "all",
-      "model": "opencode/ling-3.0-flash-fin-free",
+      "model": "kilo/inclusionai/ling-3.0-flash-fin:free",
       "description": "Fast codebase explorer and file search specialist.",
       "prompt": "You are the codebase exploration specialist. Locate files, grep patterns, and inspect structures with maximum speed and minimal verbosity."
     },
     "plan": {
       "mode": "all",
-      "model": "opencode/nemotron-3-ultra-free",
+      "model": "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
       "description": "High-capacity reasoning and architectural planning specialist.",
       "prompt": "You are the Strategic Planning Specialist. Design step-by-step implementation plans, identify architectural risks, and verify dependencies before coding starts."
     },
     "general": {
       "mode": "all",
-      "model": "gemini/gemini-3.6-flash",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "General conversational and troubleshooting agent.",
       "prompt": "You are a versatile engineering assistant. Provide direct, factual, and actionable solutions."
     },
     "compaction": {
       "mode": "all",
-      "model": "opencode/big-pickle",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Context summarizer and session compaction engine."
     },
     "orchestrator": {
       "mode": "all",
-      "model": "openrouter/openrouter/free",
+      "model": "kilo/kilo-auto/free",
       "description": "Lead Swarm Load Balancer & Orchestrator. Decomposes tasks and delegates across the specialized pipeline.",
       "prompt": "You are the Lead Swarm Load Balancer & Orchestrator. When executing tasks, decompose the workflow and load-balance across specialized agents using @mention:\n1. @coder (implement core changes)\n2. @linter (check syntax, types, brackets, imports, and lint errors)\n3. @qa (run test suites, verify builds, and execute functional tests)\n4. @verifier (deep logic trace, check for functional gaps, regressions, and unhandled states)\n5. @reviewer (final holistic sign-off)\nFan out verification tasks in parallel across different providers to balance throughput and prevent rate limits."
     },
     "coder": {
       "mode": "all",
-      "model": "mistral/codestral-latest",
+      "model": "kilo/cohere/north-mini-code:free",
       "description": "Specialist for complex algorithmic code generation, refactoring, and logic.",
       "prompt": "You are a senior developer. Write clean, exact, production-ready code. No placeholders."
     },
     "linter": {
       "mode": "all",
-      "model": "opencode/mimo-v2.5-free",
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
       "description": "Syntax, static analysis, and lint specialist. Checks diffs for syntax errors, missing brackets, malformed configs, and bad imports.",
       "prompt": "You are the Syntax & Lint Specialist. Your sole focus is analyzing code changes for syntax errors, type mismatches, missing imports, unclosed brackets, formatting violations, and invalid configuration syntax. Report exact file and line numbers with immediate fixes."
     },
     "qa": {
       "mode": "all",
-      "model": "opencode/nemotron-3.5-lightning-free",
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
       "description": "Quality Assurance & Test Specialist. Runs test suites, validates functional requirements, and tests edge cases.",
       "prompt": "You are the Quality Assurance & Test Specialist. Execute automated tests, verify build pipelines, validate against acceptance criteria, and ensure existing functionality did not break."
     },
     "tester": {
       "mode": "all",
-      "model": "opencode/mimo-v2.5-free",
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
       "description": "Writes unit tests, integration tests, and validates edge cases. Specialist for TDD and QA."
     },
     "verifier": {
       "mode": "all",
-      "model": "gemini/gemini-3.7-flash",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Logic and functional gap verifier. Analyzes fresh changes for missing edge cases, race conditions, logic errors, and architectural drift.",
       "prompt": "You are the Logic & Functional Gap Verifier. After fresh code changes are written, perform a deep logical trace: verify that business logic is sound, error handling is exhaustive, edge cases are covered, no unintended side effects were introduced, and all user requirements were satisfied."
     },
     "reviewer": {
       "mode": "all",
-      "model": "opencode/mimo-v2.5-free",
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
       "description": "Thorough code reviewer and QA verifier. Validates logic, catches regressions, and checks edge cases."
     },
     "explorer": {
       "mode": "all",
-      "model": "opencode/ling-3.0-flash-fin-free",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Fast explorer for quick patches, CSS tweaks, UI updates, and surgical file edits.",
       "prompt": "You are a rapid-execution developer. Make precise, minimal changes. Speed over verbosity."
     },
     "architect": {
       "mode": "all",
-      "model": "opencode/nemotron-3-ultra-free",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Heavyweight agent for architecture design, deep repository understanding, and system design."
     },
     "critic": {
       "mode": "all",
-      "model": "opencode/mimo-v2.5-free",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and stress-testing plans."
     },
     "researcher": {
       "mode": "all",
-      "model": "gemini/gemini-3.7-flash",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Research agent for investigating libraries, APIs, best practices, and gathering context."
     },
     "docs": {
       "mode": "all",
-      "model": "opencode/muse-spark-1.3-free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Writes and maintains developer documentation, READMEs, API docs, and inline code comments."
     },
     "designer": {
       "mode": "all",
-      "model": "openrouter/thinkingmachines/inkling:free",
+"model": "openrouter/google/gemma-4-31b-it:free",
       "description": "UI/UX design agent. Creates component designs, layout plans, and visual specifications."
     }
   },

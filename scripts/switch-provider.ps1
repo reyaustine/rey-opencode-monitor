@@ -8,10 +8,22 @@
     Target provider: kilo, opencode, or openrouter
 #>
 param(
-    [Parameter(Mandatory=$true)]
-    [ValidateSet("kilo", "opencode", "openrouter")]
+    [Parameter(Mandatory=$false)]
     [string]$Provider
 )
+
+$pySwitch = if ($PSScriptRoot) { Join-Path $PSScriptRoot "rey-switch.py" } else { $null }
+if (-not $pySwitch -or -not (Test-Path -LiteralPath $pySwitch)) {
+    $pySwitch = Join-Path $HOME ".config\opencode\scripts\rey-switch.py"
+}
+if (Test-Path -LiteralPath $pySwitch) {
+    if ($Provider) {
+        & python "$pySwitch" $Provider
+    } else {
+        & python "$pySwitch"
+    }
+    exit $LASTEXITCODE
+}
 
 $baseDir = Join-Path $HOME ".config\opencode"
 $jsoncPath = Join-Path $baseDir "opencode.jsonc"

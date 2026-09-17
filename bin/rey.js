@@ -154,23 +154,7 @@ switch (cmd) {
 
   case 'switch-provider':
   case 'switch':
-    if (isWin) {
-      // Interactive menu mode (no provider arg) or direct: rey switch-provider <provider>
-      const switchScript = resolveScript('switch-provider.ps1');
-      if (fs.existsSync(switchScript)) {
-        const provider = rest[0];
-        const pass = provider && ['kilo', 'opencode', 'openrouter'].includes(provider)
-          ? ['-Provider', provider]
-          : rest;
-        run('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-File', switchScript, ...pass]);
-      } else {
-        console.error('[rey] switch-provider.ps1 not found. Run "rey deploy" first.');
-        process.exit(1);
-      }
-    } else {
-      console.log('Provider switcher is only available on Windows (PowerShell).');
-      process.exit(1);
-    }
+    pyScript('rey-switch.py', rest)();
     break;
 
   case 'deploy':
