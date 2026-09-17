@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   R.E.Y. // Runtime Execution & Yield Monitor - Opencode Monitoring CLI
@@ -715,7 +715,7 @@ function Draw([int]$frame, [bool]$working) {
       @{ Text = ("   activity      : " + $state.Activity); Color = $actColor },
       @{ Text = ("   status        : " + $state.Health); Color = $healthColor },
       @{ Text = ("   tokens used   : {0} ({1}p | {2}c | {3}cache) [{4}]" -f $state.TokensTotal, $state.TokensPrompt, $state.TokensComp, $state.TokensCache, $state.TokensCost); Color = 'Cyan' },
-      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | ?: help)'); Color = 'DarkGray' }
+      @{ Text = ("   last refresh  : " + $state.LastRefresh + '  (X: quit | T: tokens | Q: quota | S: switch | L: logs | D: deals | O: override | H: health | W: whitelist | ?: help)'); Color = 'DarkGray' }
     )
 
     # Calculate elapsed working seconds
@@ -1026,6 +1026,7 @@ try {
             Write-Host "   D .............. View OpenRouter deals" -ForegroundColor White
             Write-Host "   O .............. Model override (lock/rotation)" -ForegroundColor White
             Write-Host "   H .............. Fleet health watchdog" -ForegroundColor White
+            Write-Host "   W .............. Auto-whitelist discovered free models" -ForegroundColor White
             Write-Host "   ? .............. This help screen" -ForegroundColor White
 
             Write-Host "  ===============================================" -ForegroundColor Cyan
@@ -1035,6 +1036,7 @@ try {
             Write-Host "   rey ..................... Start R.E.Y. Monitor" -ForegroundColor Gray
             Write-Host "   rey status ............. One-line fleet status (--json for scripts)" -ForegroundColor Gray
             Write-Host "   rey health ............. Run fleet health check" -ForegroundColor Gray
+            Write-Host "   rey whitelist .......... Auto-whitelist discovered free models" -ForegroundColor Gray
             Write-Host "   rey quota .............. Check provider quota & rate limits" -ForegroundColor Gray
             Write-Host "   rey models ............. Browse live free models" -ForegroundColor Gray
             Write-Host "   rey fix ................ Diagnose & auto-repair environment" -ForegroundColor Gray
@@ -1062,6 +1064,25 @@ try {
             }
             if (Test-Path $pyHealth) {
               & python "$pyHealth"
+              Write-Host ""
+              Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
+              try { [Console]::ReadKey($true) | Out-Null } catch { }
+            }
+            $script:lastHealthCheck = [DateTime]::Now
+            Refresh-Status
+            try { [Console]::Clear() } catch { Clear-Host }
+            try { [Console]::CursorVisible = $false } catch { }
+          }
+          if ($key.Key -eq 'W') {
+            try { [Console]::CursorVisible = $true } catch { }
+            try { [Console]::Clear() } catch { Clear-Host }
+            $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Join-Path $HOME '.config\opencode\scripts' }
+            $pyHealth = Join-Path $scriptDir 'rey-health.py'
+            if (-not (Test-Path $pyHealth)) {
+              $pyHealth = Join-Path $HOME '.config\opencode\scripts\rey-health.py'
+            }
+            if (Test-Path $pyHealth) {
+              & python "$pyHealth" "--whitelist"
               Write-Host ""
               Write-Host "  Press any key to return to R.E.Y. Monitor..." -ForegroundColor DarkGray
               try { [Console]::ReadKey($true) | Out-Null } catch { }

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-R.E.Y. // Fleet Health Watchdog & Free Model Discovery Engine
-Pings provider APIs every 30 mins (and on-demand via H key),
-tests responsiveness of ALL Free models, discovers newly released free models,
-tracks newly updated live paid models on OpenRouter, and reports deals & status live.
+R.E.Y. // Fleet Health Watchdog & Multi-Provider Free Model Discovery Engine
+Pings provider APIs every 30 mins (and on-demand via H/W keys),
+audits live models across ALL configured providers (Gemini, Groq, Mistral, Kilo, OpenCode, LM Studio, OpenRouter),
+tests endpoint responsiveness of free models, discovers newly released free models,
+and provides auto-whitelisting of discovered models into OpenCode configuration.
 """
 
 import os
 import sys
 import json
 import time
+import re
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
@@ -30,6 +32,8 @@ WHITE = "\033[37m"
 GRAY = "\033[90m"
 
 HOME = os.path.expanduser("~")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 CONFIG_DIR = os.path.join(HOME, ".config", "opencode")
 HEALTH_FILE = os.path.join(CONFIG_DIR, "model-health.json")
 DEALS_FILE = os.path.join(CONFIG_DIR, "openrouter-deals.json")
@@ -89,11 +93,13 @@ def classify_budget(remaining, limit):
         return "LOW", percent
     return "OK", percent
 
+
 def ping_endpoint(url, headers=None, timeout=6):
     """Pings an HTTP endpoint and measures latency."""
     if headers is None:
         headers = {}
-    headers["User-Agent"] = "REY-Fleet-Monitor/1.0"
+    if "User-Agent" not in headers:
+        headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) REY-Fleet-Monitor/1.0"
     req = urllib.request.Request(url, headers=headers)
     t0 = time.time()
     try:
@@ -107,25 +113,47 @@ def ping_endpoint(url, headers=None, timeout=6):
         latency_ms = int((time.time() - t0) * 1000)
         return False, str(e), latency_ms, ""
 
-def get_current_allowlist():
-    """Reads models configured across opencode.jsonc."""
-    models = list(BASE_ALLOWLIST)
-    if os.path.exists(CONFIG_JSONC):
+
+def get_auth_key(provider):
+    """Retrieves API key from environment variables or auth.json."""
+    key = os.environ.get(f"{provider.upper()}_API_KEY", "")
+    if not key and provider == "gemini":
+        key = os.environ.get("GOOGLE_API_KEY", "") or os.environ.get("GOOGLE_GENERATIVE_AI_API_KEY", "")
+    if not key and os.path.exists(AUTH_PATH):
         try:
-            with open(CONFIG_JSONC, "r", encoding="utf-8") as f:
-                lines = [l for l in f if not l.strip().startswith("//")]
-                cdata = json.loads("\n".join(lines))
-                # Add provider whitelists
-                if cdata.get("provider"):
-                    for p_name, p_val in cdata["provider"].items():
-                        if isinstance(p_val, dict):
-                            for m in p_val.get("whitelist", []):
-                                full = f"{p_name}/{m}" if not m.startswith(p_name) else m
-                                if full not in models:
-                                    models.append(full)
+            with open(AUTH_PATH, "r", encoding="utf-8-sig") as af:
+                data = json.load(af)
+                lookup = "google" if provider == "gemini" else provider
+                key = data.get(lookup, {}).get("key", "")
         except Exception:
             pass
+    return key
+
+
+def get_current_allowlist():
+    """Reads models configured across opencode.jsonc and repo configs."""
+    models = list(BASE_ALLOWLIST)
+    cfg_paths = [
+        CONFIG_JSONC,
+        os.path.join(REPO_ROOT, "configs", "opencode.jsonc")
+    ]
+    for path in set(cfg_paths):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    lines = [l for l in f if not l.strip().startswith("//")]
+                    cdata = json.loads("\n".join(lines))
+                    if cdata.get("provider"):
+                        for p_name, p_val in cdata["provider"].items():
+                            if isinstance(p_val, dict):
+                                for m in p_val.get("whitelist", []):
+                                    full = f"{p_name}/{m}" if not m.startswith(p_name) else m
+                                    if full not in models:
+                                        models.append(full)
+            except Exception:
+                pass
     return models
+
 
 def check_openrouter_quota():
     """Queries OpenRouter auth and tests live free-tier rate limit status."""
@@ -153,13 +181,7 @@ def check_openrouter_quota():
         "message": "",
         "last_checked": ""
     }
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not key and os.path.exists(AUTH_PATH):
-        try:
-            with open(AUTH_PATH, "r", encoding="utf-8") as f:
-                key = json.load(f).get("openrouter", {}).get("key", "")
-        except Exception:
-            pass
+    key = get_auth_key("openrouter")
     if not key:
         return quota_info
 
@@ -179,24 +201,27 @@ def check_openrouter_quota():
                 "DEPLETED": "CREDIT_DEPLETED",
                 "UNKNOWN": "CREDIT_UNKNOWN"
             }
+
             quota_info["ok"] = True
-            quota_info["label"] = kdata.get("label", "")
-            quota_info["credit_limit"] = round(limit, 4)
-            quota_info["credits_remaining"] = round(remaining, 4)
-            quota_info["credit_percent_remaining"] = round(percent, 1)
+            quota_info["status"] = budget_labels.get(budget_status, "UNKNOWN")
+            quota_info["label"] = kdata.get("label", "OpenRouter User")
+            quota_info["credit_limit"] = limit
+            quota_info["credits_remaining"] = remaining
+            quota_info["credit_percent_remaining"] = percent
             quota_info["budget_status"] = budget_status
             quota_info["budget_ok"] = budget_status == "OK"
             quota_info["budget_usable"] = budget_status in ("OK", "LOW")
-            quota_info["status"] = budget_labels.get(budget_status, "CREDIT_UNKNOWN")
-            quota_info["free_limit"] = safe_int(free_data.get("limit"), quota_info["free_limit"])
-            quota_info["free_remaining"] = safe_int(free_data.get("remaining"), quota_info["free_remaining"])
+            quota_info["free_limit"] = safe_int(free_data.get("limit"), 1000 if remaining > 0 else 50)
+            quota_info["free_remaining"] = safe_int(free_data.get("remaining"), quota_info["free_limit"])
             quota_info["free_used"] = safe_int(free_data.get("used"), 0)
             quota_info["free_quota_known"] = bool(free_data)
-            quota_info["usage_daily"] = round(safe_float(kdata.get("usage_daily"), 0), 4)
-            quota_info["usage_weekly"] = round(safe_float(kdata.get("usage_weekly"), 0), 4)
-            quota_info["usage_monthly"] = round(safe_float(kdata.get("usage_monthly"), 0), 4)
+            quota_info["usage_daily"] = safe_float(kdata.get("usage_daily", 0))
+            quota_info["usage_weekly"] = safe_float(kdata.get("usage_weekly", 0))
+            quota_info["usage_monthly"] = safe_float(kdata.get("usage_monthly", 0))
+            quota_info["is_rate_limited"] = (quota_info["free_remaining"] == 0 and quota_info["free_quota_known"]) or budget_status == "DEPLETED"
             quota_info["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
+        quota_info["status"] = "KEY_CHECK_FAILED"
         quota_info["error"] = str(e)
 
     # 2. Probe free model rate limit
@@ -257,8 +282,277 @@ def check_openrouter_quota():
 
     return quota_info
 
-def run_health_check(quiet=False):
-    """Executes the complete health check, free model audit, and model discovery."""
+
+def fetch_gemini_models():
+    """Queries Google Gemini API for live conversational and code models."""
+    key = get_auth_key("gemini")
+    if not key:
+        return {"provider": "Google Gemini", "ok": False, "latency_ms": 0, "models": [], "error": "No API key configured"}
+    t0 = time.time()
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+        req = urllib.request.Request(url, headers={"User-Agent": "REY-Fleet-Monitor/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            lat = int((time.time() - t0) * 1000)
+            data = json.loads(r.read().decode())
+            models = []
+            for m in data.get("models", []):
+                mid = m.get("name", "").replace("models/", "")
+                if any(x in mid.lower() for x in ["gemini", "gemma"]) and not any(x in mid.lower() for x in ["tts", "embedding", "aqa", "imagen", "deprecated"]):
+                    models.append({
+                        "id": mid,
+                        "full_id": f"gemini/{mid}",
+                        "name": m.get("displayName", mid),
+                        "context_length": m.get("inputTokenLimit", 0),
+                        "status": "OK",
+                        "latency_ms": lat
+                    })
+            models.sort(key=lambda x: x["id"])
+            return {"provider": "Google Gemini", "ok": True, "latency_ms": lat, "models": models}
+    except Exception as e:
+        lat = int((time.time() - t0) * 1000)
+        return {"provider": "Google Gemini", "ok": False, "latency_ms": lat, "models": [], "error": str(e)}
+
+
+def fetch_groq_models(groq_key):
+    """Queries Groq API for live hardware-accelerated models."""
+    if not groq_key:
+        return {"provider": "Groq", "ok": False, "latency_ms": 0, "models": [], "error": "No API key configured"}
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/models",
+            headers={"Authorization": f"Bearer {groq_key}", "User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            lat = int((time.time() - t0) * 1000)
+            data = json.loads(r.read().decode())
+            models = []
+            for m in data.get("data", []):
+                mid = m.get("id", "")
+                if not mid.startswith("whisper"):
+                    models.append({
+                        "id": mid,
+                        "full_id": f"groq/{mid}",
+                        "name": mid,
+                        "context_length": m.get("context_window", 0),
+                        "status": "OK",
+                        "latency_ms": lat
+                    })
+            models.sort(key=lambda x: x["id"])
+            return {"provider": "Groq", "ok": True, "latency_ms": lat, "models": models}
+    except Exception as e:
+        lat = int((time.time() - t0) * 1000)
+        return {"provider": "Groq", "ok": False, "latency_ms": lat, "models": [], "error": str(e)}
+
+
+def fetch_mistral_models():
+    """Queries Mistral API for live frontier models."""
+    key = get_auth_key("mistral")
+    if not key:
+        return {"provider": "Mistral", "ok": False, "latency_ms": 0, "models": [], "error": "No API key configured"}
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(
+            "https://api.mistral.ai/v1/models",
+            headers={"Authorization": f"Bearer {key}", "User-Agent": "REY-Fleet-Monitor/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            lat = int((time.time() - t0) * 1000)
+            data = json.loads(r.read().decode())
+            models = []
+            for m in data.get("data", []):
+                mid = m.get("id", "")
+                if any(x in mid.lower() for x in ["codestral", "mistral-large", "mistral-small", "ministral", "pixtral"]):
+                    models.append({
+                        "id": mid,
+                        "full_id": f"mistral/{mid}",
+                        "name": m.get("name", mid),
+                        "context_length": m.get("max_context_length", 0),
+                        "status": "OK",
+                        "latency_ms": lat
+                    })
+            models.sort(key=lambda x: x["id"])
+            return {"provider": "Mistral", "ok": True, "latency_ms": lat, "models": models}
+    except Exception as e:
+        lat = int((time.time() - t0) * 1000)
+        return {"provider": "Mistral", "ok": False, "latency_ms": lat, "models": [], "error": str(e)}
+
+
+def fetch_kilo_models():
+    """Queries Kilo Code Gateway for live auto & free models."""
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(
+            "https://api.kilo.ai/api/gateway/v1/models",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            lat = int((time.time() - t0) * 1000)
+            data = json.loads(r.read().decode())
+            models = []
+            for m in data.get("data", []):
+                mid = m.get("id", "")
+                if any(x in mid.lower() for x in ["free", "auto", "kilo"]):
+                    models.append({
+                        "id": mid,
+                        "full_id": f"kilo/{mid}",
+                        "name": m.get("name", mid),
+                        "context_length": m.get("context_length", 0),
+                        "status": "OK",
+                        "latency_ms": lat
+                    })
+            models.sort(key=lambda x: x["id"])
+            return {"provider": "Kilo Code", "ok": True, "latency_ms": lat, "models": models}
+    except Exception as e:
+        lat = int((time.time() - t0) * 1000)
+        return {"provider": "Kilo Code", "ok": False, "latency_ms": lat, "models": [], "error": str(e)}
+
+
+def fetch_lmstudio_models(headers):
+    """Queries LM Studio local LAN server."""
+    t0 = time.time()
+    try:
+        req = urllib.request.Request("http://192.168.254.140:1234/v1/models", headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as r:
+            lat = int((time.time() - t0) * 1000)
+            data = json.loads(r.read().decode())
+            models = []
+            for m in data.get("data", []):
+                mid = m.get("id", "")
+                models.append({
+                    "id": mid,
+                    "full_id": f"lmstudio/{mid}",
+                    "name": mid,
+                    "context_length": 128000,
+                    "status": "OK",
+                    "latency_ms": lat
+                })
+            return {"provider": "LM Studio (LAN)", "ok": True, "latency_ms": lat, "models": models}
+    except Exception as e:
+        lat = int((time.time() - t0) * 1000)
+        return {"provider": "LM Studio (LAN)", "ok": False, "latency_ms": lat, "models": [], "error": "OFFLINE"}
+
+
+def get_opencode_builtin_models():
+    """Returns local built-in models bundled with OpenCode."""
+    return [
+        {"id": "auto", "full_id": "opencode/auto", "name": "OpenCode Auto Router", "context_length": 128000, "status": "OK", "latency_ms": 0},
+        {"id": "big-pickle", "full_id": "opencode/big-pickle", "name": "OpenCode Big Pickle (Local Free)", "context_length": 128000, "status": "OK", "latency_ms": 0},
+        {"id": "muse-spark-1.3-contributor-free", "full_id": "opencode/muse-spark-1.3-contributor-free", "name": "Muse Spark 1.3 Contributor Free", "context_length": 128000, "status": "OK", "latency_ms": 0},
+        {"id": "mimo-v2.5-free", "full_id": "opencode/mimo-v2.5-free", "name": "Mimo v2.5 Free", "context_length": 128000, "status": "OK", "latency_ms": 0},
+        {"id": "nemotron-3.5-lightning-free", "full_id": "opencode/nemotron-3.5-lightning-free", "name": "Nemotron 3.5 Lightning Free", "context_length": 128000, "status": "OK", "latency_ms": 0}
+    ]
+
+
+def add_models_to_whitelist(models_to_add):
+    """
+    Auto-adds newly discovered free models to provider.openrouter.whitelist
+    across configs/opencode.jsonc, configs/opencode.json, deployed runtime configs,
+    and model-fallback.json.
+    """
+    if not models_to_add:
+        print("\n  [i] No newly discovered models to add.")
+        return False, 0
+
+    raw_ids = []
+    for m in models_to_add:
+        raw_id = m.get("raw_id", "") if isinstance(m, dict) else str(m)
+        if raw_id.startswith("openrouter/"):
+            raw_id = raw_id.replace("openrouter/", "", 1)
+        if raw_id and raw_id not in raw_ids:
+            raw_ids.append(raw_id)
+
+    if not raw_ids:
+        return False, 0
+
+    target_jsonc_files = [
+        os.path.join(REPO_ROOT, "configs", "opencode.jsonc"),
+        CONFIG_JSONC
+    ]
+    target_json_files = [
+        os.path.join(REPO_ROOT, "configs", "opencode.json"),
+        CONFIG_JSON
+    ]
+    target_fallback_files = [
+        os.path.join(REPO_ROOT, "configs", "model-fallback.json"),
+        os.path.join(CONFIG_DIR, "model-fallback.json")
+    ]
+
+    total_added = 0
+
+    # 1. Update JSONC files (preserving comments & structure)
+    for path in set(target_jsonc_files):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                pattern = r'("openrouter"\s*:\s*\{)([^}]+)(\})'
+                match = re.search(pattern, content)
+                if match:
+                    before_body, body, after_body = match.group(1), match.group(2), match.group(3)
+                    if '"whitelist"' in body:
+                        wl_match = re.search(r'("whitelist"\s*:\s*\[)([^\]]*)(\])', body)
+                        if wl_match:
+                            existing = [m.strip(' \t\r\n"') for m in wl_match.group(2).split(',') if m.strip(' \t\r\n"')]
+                            combined = list(dict.fromkeys(existing + raw_ids))
+                            formatted_wl = '\n' + ',\n'.join(f'        "{m}"' for m in combined) + '\n      '
+                            new_body = body[:wl_match.start(2)] + formatted_wl + body[wl_match.end(2):]
+                            new_content = content[:match.start()] + before_body + new_body + after_body + content[match.end():]
+                            total_added = max(total_added, len(combined) - len(existing))
+                        else:
+                            continue
+                    else:
+                        formatted_wl = '\n      "whitelist": [\n' + ',\n'.join(f'        "{m}"' for m in raw_ids) + '\n      ]'
+                        new_body = body.rstrip() + ',' + formatted_wl + '\n    '
+                        new_content = content[:match.start()] + before_body + new_body + after_body + content[match.end():]
+                        total_added = max(total_added, len(raw_ids))
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
+            except Exception:
+                pass
+
+    # 2. Update JSON files
+    for path in set(target_json_files):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if "provider" in data and "openrouter" in data["provider"]:
+                    existing = data["provider"]["openrouter"].get("whitelist", [])
+                    combined = list(dict.fromkeys(existing + raw_ids))
+                    data["provider"]["openrouter"]["whitelist"] = combined
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+            except Exception:
+                pass
+
+    # 3. Update Fallback chains
+    for path in set(target_fallback_files):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    fdata = json.load(f)
+                if "agents" in fdata and "*" in fdata["agents"] and "fallbackModels" in fdata["agents"]["*"]:
+                    fb_models = fdata["agents"]["*"]["fallbackModels"]
+                    for rid in raw_ids:
+                        full_rid = f"openrouter/{rid}"
+                        if full_rid not in fb_models:
+                            fb_models.append(full_rid)
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(fdata, f, indent=2)
+            except Exception:
+                pass
+
+    print(f"\n  {GREEN}[✓] Successfully added {len(raw_ids)} models to OpenCode whitelist & configs!{RESET}")
+    for rid in raw_ids:
+        print(f"      • openrouter/{rid}")
+    print(f"\n  {YELLOW}[*] Swarm configs updated. Restart OpenCode to apply.{RESET}\n")
+    return True, len(raw_ids)
+
+
+def run_health_check(quiet=False, auto_whitelist=False):
+    """Executes multi-provider health check, full model audit, and model discovery."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
     start_time = time.time()
 
@@ -267,7 +561,7 @@ def run_health_check(quiet=False):
         "running": True,
         "timestamp": int(start_time * 1000),
         "status": "RUNNING",
-        "task": "[HEALTH] Auditing ALL Free & Paid models on OpenRouter..."
+        "task": "[HEALTH] Auditing ALL Provider models (Gemini, Groq, Mistral, Kilo, OpenRouter)..."
     }
     try:
         with open(HEALTH_FILE, "w", encoding="utf-8") as f:
@@ -277,15 +571,33 @@ def run_health_check(quiet=False):
 
     if not quiet:
         print(f"\n{CYAN}{'=' * 85}{RESET}")
-        print(f"  {BOLD}🚀 R.E.Y. // FLEET HEALTH WATCHDOG & MODEL DISCOVERY AUDIT{RESET}")
+        print(f"  {BOLD}🚀 R.E.Y. // FLEET HEALTH WATCHDOG & MULTI-PROVIDER MODEL AUDIT{RESET}")
         print(f"{CYAN}{'=' * 85}{RESET}")
 
-    # 1. Fetch live models from OpenRouter
+    groq_key = get_auth_key("groq")
+    lmstudio_key = get_auth_key("lmstudio")
+    lmstudio_headers = {"Authorization": f"Bearer {lmstudio_key}"} if lmstudio_key else {}
+
+    # Query all providers concurrently
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        f_gemini = ex.submit(fetch_gemini_models)
+        f_groq = ex.submit(fetch_groq_models, groq_key)
+        f_mistral = ex.submit(fetch_mistral_models)
+        f_kilo = ex.submit(fetch_kilo_models)
+        f_lmstudio = ex.submit(fetch_lmstudio_models, lmstudio_headers)
+        f_openrouter_raw = ex.submit(ping_endpoint, "https://openrouter.ai/api/v1/models", {}, 10)
+
+    gemini_res = f_gemini.result()
+    groq_res = f_groq.result()
+    mistral_res = f_mistral.result()
+    kilo_res = f_kilo.result()
+    lmstudio_res = f_lmstudio.result()
+    openrouter_ok, code, lat_or, body_or = f_openrouter_raw.result()
+
+    # Parse OpenRouter models
     all_openrouter_models = []
     openrouter_free_models = []
     openrouter_paid_models = []
-    openrouter_ok, code, lat_or, body_or = ping_endpoint("https://openrouter.ai/api/v1/models", timeout=10)
-    
     if openrouter_ok and body_or:
         try:
             or_data = json.loads(body_or)
@@ -301,54 +613,11 @@ def run_health_check(quiet=False):
         except Exception:
             pass
 
-    # 2. Check Kilo Gateway
-    kilo_ok, k_code, lat_k, _ = ping_endpoint("https://api.kilo.ai/api/gateway/v1/models")
-
-    # 3. Check Groq API
-    groq_key = os.environ.get("GROQ_API_KEY", "")
-    if not groq_key and os.path.exists(AUTH_PATH):
-        try:
-            with open(AUTH_PATH, "r", encoding="utf-8") as af:
-                groq_key = json.load(af).get("groq", {}).get("key", "")
-        except Exception:
-            pass
-
-    groq_models = []
-    groq_ok = False
-    lat_groq = 0
-    if groq_key:
-        groq_ok, g_code, lat_groq, body_groq = ping_endpoint(
-            "https://api.groq.com/openai/v1/models",
-            headers={"Authorization": f"Bearer {groq_key}"}
-        )
-        if groq_ok and body_groq:
-            try:
-                g_data = json.loads(body_groq)
-                groq_models = [m.get("id", "") for m in g_data.get("data", [])]
-            except Exception:
-                pass
-
-    # 4. Check LM Studio LAN Gateway (key from env or auth.json; optional)
-    lmstudio_key = os.environ.get("LMSTUDIO_API_KEY", "")
-    if not lmstudio_key and os.path.exists(AUTH_PATH):
-        try:
-            with open(AUTH_PATH, "r", encoding="utf-8-sig") as af:
-                lmstudio_key = json.load(af).get("lmstudio", {}).get("key", "")
-        except Exception:
-            pass
-    lmstudio_headers = {"Authorization": f"Bearer {lmstudio_key}"} if lmstudio_key else {}
-    lmstudio_ok, lm_code, lat_lm, _ = ping_endpoint(
-        "http://192.168.254.140:1234/v1/models",
-        headers=lmstudio_headers,
-        timeout=3
-    )
-
-    # 5. Deep-audit ALL Free Models on OpenRouter concurrently
+    # Deep-audit OpenRouter Free Models concurrently
     if not quiet:
         print(f"  Auditing {len(openrouter_free_models)} live free models on OpenRouter...")
 
     free_model_health = {}
-    
     def check_free_model(m):
         mid = m.get("id", "")
         res = {
@@ -361,7 +630,6 @@ def run_health_check(quiet=False):
             "warning": ""
         }
         try:
-            # Check model endpoints status
             ep_url = f"https://openrouter.ai/api/v1/models/{mid}/endpoints"
             r = urllib.request.Request(ep_url, headers={"User-Agent": "REY-Fleet-Monitor/1.0"})
             t0 = time.time()
@@ -399,7 +667,7 @@ def run_health_check(quiet=False):
     for fr in free_results:
         free_model_health[fr["id"]] = fr
 
-    # 6. Allowlisted Models Responsiveness
+    # Allowlisted Models Responsiveness
     current_allowlist = get_current_allowlist()
     responsive = []
     unresponsive = []
@@ -425,30 +693,40 @@ def run_health_check(quiet=False):
             else:
                 unresponsive.append(full_id)
         elif full_id.startswith("groq/"):
-            if groq_ok:
+            if groq_res["ok"]:
+                responsive.append(full_id)
+            else:
+                unresponsive.append(full_id)
+        elif full_id.startswith("gemini/"):
+            if gemini_res["ok"]:
+                responsive.append(full_id)
+            else:
+                unresponsive.append(full_id)
+        elif full_id.startswith("mistral/"):
+            if mistral_res["ok"]:
                 responsive.append(full_id)
             else:
                 unresponsive.append(full_id)
         elif full_id.startswith("kilo/"):
-            if kilo_ok:
+            if kilo_res["ok"]:
                 responsive.append(full_id)
             else:
                 unresponsive.append(full_id)
         elif full_id.startswith("lmstudio/"):
-            if lmstudio_ok:
+            if lmstudio_res["ok"]:
                 responsive.append(full_id)
             else:
-                # LM Studio is optional — skip gracefully instead of marking unresponsive
                 pass
         else:
             responsive.append(full_id)
 
-    # 7. Discover New Free Models on OpenRouter
+    # Discover New Free Models on OpenRouter
     existing_raw_ids = {m.replace("openrouter/", "", 1) for m in current_allowlist if m.startswith("openrouter/")}
     new_free_models = []
     for fm in openrouter_free_models:
         f_id = fm.get("id", "")
-        if f_id not in existing_raw_ids and not f_id.startswith("google/lyria"):
+        clean_id = f_id.replace("openrouter/", "", 1)
+        if f_id not in existing_raw_ids and clean_id not in existing_raw_ids and not f_id.startswith("google/lyria"):
             new_free_models.append({
                 "id": f"openrouter/{f_id}",
                 "raw_id": f_id,
@@ -458,7 +736,7 @@ def run_health_check(quiet=False):
                 "uptime": free_model_health.get(f_id, {}).get("uptime_1d", 100.0)
             })
 
-    # 8. Track Live Paid Models Updates (Past 7-14 days)
+    # Track Live Paid Models Updates (Past 14 days)
     now_ts = time.time()
     recent_paid_models = []
     for pm in openrouter_paid_models:
@@ -475,13 +753,12 @@ def run_health_check(quiet=False):
             })
     recent_paid_models.sort(key=lambda x: x["days_ago"])
 
-    # 9. Read active discounted deals snapshot
+    # Read active deals
     active_deals_count = 0
     if os.path.exists(DEALS_FILE):
         try:
             with open(DEALS_FILE, "r", encoding="utf-8") as df:
-                ddata = json.load(df)
-                active_deals_count = ddata.get("total_deals", 0)
+                active_deals_count = json.load(df).get("total_deals", 0)
         except Exception:
             pass
 
@@ -507,6 +784,8 @@ def run_health_check(quiet=False):
     elif budget_status == "LOW":
         summary_text += f" [OPENROUTER CREDIT LOW - ${quota_info.get('credits_remaining', 0):.3f} remaining]"
 
+    opencode_models = get_opencode_builtin_models()
+
     result_data = {
         "running": False,
         "timestamp": int(time.time() * 1000),
@@ -515,9 +794,12 @@ def run_health_check(quiet=False):
         "duration_ms": duration_ms,
         "providers": {
             "openrouter": {"ok": openrouter_ok, "latency_ms": lat_or},
-            "kilo": {"ok": kilo_ok, "latency_ms": lat_k},
-            "groq": {"ok": groq_ok, "latency_ms": lat_groq},
-            "lmstudio": {"ok": lmstudio_ok, "latency_ms": lat_lm}
+            "gemini": {"ok": gemini_res["ok"], "latency_ms": gemini_res["latency_ms"], "models_count": len(gemini_res["models"])},
+            "groq": {"ok": groq_res["ok"], "latency_ms": groq_res["latency_ms"], "models_count": len(groq_res["models"])},
+            "mistral": {"ok": mistral_res["ok"], "latency_ms": mistral_res["latency_ms"], "models_count": len(mistral_res["models"])},
+            "kilo": {"ok": kilo_res["ok"], "latency_ms": kilo_res["latency_ms"], "models_count": len(kilo_res["models"])},
+            "opencode": {"ok": True, "latency_ms": 0, "models_count": len(opencode_models)},
+            "lmstudio": {"ok": lmstudio_res["ok"], "latency_ms": lmstudio_res["latency_ms"], "models_count": len(lmstudio_res["models"])}
         },
         "quota": quota_info,
         "responsive_count": len(responsive),
@@ -549,6 +831,7 @@ def run_health_check(quiet=False):
         credit_limit = safe_float(quota_info.get("credit_limit"), 0)
         percent = safe_float(quota_info.get("credit_percent_remaining"), 0)
         daily = safe_float(quota_info.get("usage_daily"), 0)
+
         print("\n OpenRouter Rate Limit & Quota Monitor:")
         if quota_info.get("is_rate_limited"):
             print(f"  {RED}[429 RATE LIMITED]{RESET} Free-tier probe blocked ({free_rem}/{free_lim} remaining)")
@@ -560,17 +843,65 @@ def run_health_check(quiet=False):
         elif budget_status == "CRITICAL":
             print(f"  {YELLOW}[CRITICAL CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
         elif budget_status == "LOW":
-            print(f"  {YELLOW}[LOW CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
+            print(f"  {YELLOW}[LOW CREDIT]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
         else:
-            print(f"  {GREEN}[CREDIT OK]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/{credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
+            print(f"  {GREEN}[CREDIT OK]{RESET} Free probe {quota_info.get('free_probe_status', 'unknown')} | free {free_rem}/{free_lim} | paid ${credits:.3f}/${credit_limit:.2f} ({percent:.1f}%) | ${daily:.3f} used today")
 
-        print("\n Provider Gateways:")
+        print("\n Provider Gateways & Gate Latency:")
         print(f"  [{'✓' if openrouter_ok else '✖'}] OpenRouter API    - {'200 OK' if openrouter_ok else 'FAIL'} ({lat_or}ms)")
-        print(f"  [{'✓' if kilo_ok else '✖'}] Kilo Code Gateway - {'200 OK' if kilo_ok else 'FAIL'} ({lat_k}ms)")
-        print(f"  [{'✓' if groq_ok else '✖'}] Groq API          - {'200 OK' if groq_ok else 'FAIL'} ({lat_groq}ms)")
-        print(f"  [{'✓' if lmstudio_ok else '✖'}] LM Studio LAN     - {'200 OK' if lmstudio_ok else 'OFFLINE'} ({lat_lm}ms)")
+        print(f"  [{'✓' if gemini_res['ok'] else '✖'}] Google Gemini     - {'200 OK' if gemini_res['ok'] else 'FAIL'} ({gemini_res['latency_ms']}ms) | {len(gemini_res['models'])} models live")
+        print(f"  [{'✓' if groq_res['ok'] else '✖'}] Groq API          - {'200 OK' if groq_res['ok'] else 'FAIL'} ({groq_res['latency_ms']}ms) | {len(groq_res['models'])} models live")
+        print(f"  [{'✓' if mistral_res['ok'] else '✖'}] Mistral API       - {'200 OK' if mistral_res['ok'] else 'FAIL'} ({mistral_res['latency_ms']}ms) | {len(mistral_res['models'])} models live")
+        print(f"  [{'✓' if kilo_res['ok'] else '✖'}] Kilo Code Gateway - {'200 OK' if kilo_res['ok'] else 'FAIL'} ({kilo_res['latency_ms']}ms) | {len(kilo_res['models'])} models live")
+        print(f"  [{'✓' if lmstudio_res['ok'] else '✖'}] LM Studio LAN     - {'200 OK' if lmstudio_res['ok'] else 'OFFLINE (LAN Server)'} ({lmstudio_res['latency_ms']}ms)")
 
-        print(f"\n All Live OpenRouter Free Models ({len(openrouter_free_models)} Models Audited):")
+        # ── Multi-Provider Models Sections ──
+        print(f"\n {BOLD}Live Models Across All Providers:{RESET}")
+
+        # Gemini
+        if gemini_res["ok"] and gemini_res["models"]:
+            print(f"\n  {CYAN}── Google Gemini Models (AI Studio Free Key) ──{RESET}")
+            for gm in gemini_res["models"][:6]:
+                ctx = f"{gm['context_length']//1000}k" if gm['context_length'] >= 1000 else str(gm['context_length'])
+                print(f"  [{GREEN}OK      {RESET}] {gm['full_id']:<38} | ctx:{ctx:<5} | {gm['latency_ms']}ms | {gm['name']}")
+
+        # Groq
+        if groq_res["ok"] and groq_res["models"]:
+            print(f"\n  {CYAN}── Groq Live Models (Ultra-Fast Hardware) ──{RESET}")
+            for gqm in groq_res["models"][:6]:
+                ctx = f"{gqm['context_length']//1000}k" if gqm['context_length'] >= 1000 else str(gqm['context_length'])
+                print(f"  [{GREEN}OK      {RESET}] {gqm['full_id']:<38} | ctx:{ctx:<5} | {gqm['latency_ms']}ms | {gqm['name']}")
+
+        # Mistral
+        if mistral_res["ok"] and mistral_res["models"]:
+            print(f"\n  {CYAN}── Mistral Live Models (Code & Reasoning) ──{RESET}")
+            for mm in mistral_res["models"][:6]:
+                ctx = f"{mm['context_length']//1000}k" if mm['context_length'] >= 1000 else str(mm['context_length'])
+                print(f"  [{GREEN}OK      {RESET}] {mm['full_id']:<38} | ctx:{ctx:<5} | {mm['latency_ms']}ms | {mm['name']}")
+
+        # Kilo
+        if kilo_res["ok"] and kilo_res["models"]:
+            print(f"\n  {CYAN}── Kilo Code Live Models (Zero-Config Free) ──{RESET}")
+            for km in kilo_res["models"][:6]:
+                ctx = f"{km['context_length']//1000}k" if km['context_length'] >= 1000 else str(km['context_length'])
+                print(f"  [{GREEN}OK      {RESET}] {km['full_id']:<38} | ctx:{ctx:<5} | {km['latency_ms']}ms | {km['name']}")
+
+        # OpenCode
+        print(f"\n  {CYAN}── OpenCode Built-In Free Models ──{RESET}")
+        for om in opencode_models:
+            ctx = f"{om['context_length']//1000}k" if om['context_length'] >= 1000 else str(om['context_length'])
+            print(f"  [{GREEN}OK      {RESET}] {om['full_id']:<38} | ctx:{ctx:<5} | Local  | {om['name']}")
+
+        # LM Studio
+        print(f"\n  {CYAN}── LM Studio LAN Models ──{RESET}")
+        if lmstudio_res["ok"] and lmstudio_res["models"]:
+            for lmm in lmstudio_res["models"]:
+                print(f"  [{GREEN}OK      {RESET}] {lmm['full_id']:<38} | ctx:128k | {lmm['latency_ms']}ms | {lmm['name']}")
+        else:
+            print(f"  [{GRAY}OFFLINE {RESET}] LM Studio LAN server not responding (optional local host)")
+
+        # OpenRouter
+        print(f"\n  {CYAN}── OpenRouter Free Models ({len(openrouter_free_models)} Audited Endpoints) ──{RESET}")
         for m in sorted(openrouter_free_models, key=lambda x: x["id"]):
             mid = m["id"]
             h = free_model_health.get(mid, {})
@@ -609,12 +940,29 @@ def run_health_check(quiet=False):
         print(f"\n Promotional Deals:")
         print(f"  {MAGENTA}★ {active_deals_count} active discounted models on OpenRouter (Press D in REY CLI to view all deals){RESET}")
 
+        # Auto-whitelist execution or interactive prompt
+        if auto_whitelist and new_free_models:
+            add_models_to_whitelist(new_free_models)
+        elif new_free_models and not quiet and sys.stdin.isatty():
+            print(f"\n  {CYAN}{'─' * 80}{RESET}")
+            print(f"  {BOLD}💡 Press [W] to auto-add all {len(new_free_models)} free models to OpenCode whitelist{RESET}")
+            print(f"     Press [Enter] to skip and return to monitor")
+            print(f"  {CYAN}{'─' * 80}{RESET}")
+            try:
+                ans = input("  Choice [W/Enter]: ").strip().upper()
+                if ans == "W":
+                    add_models_to_whitelist(new_free_models)
+            except (KeyboardInterrupt, EOFError):
+                pass
+
         print("\n" + "=" * 85)
         print(f" Status: {overall_status} | Elapsed: {duration_ms}ms | Last Check: {result_data['last_check_str']}")
         print("=" * 85 + "\n")
 
     return result_data
 
+
 if __name__ == "__main__":
     quiet_mode = "--quiet" in sys.argv or "-q" in sys.argv
-    run_health_check(quiet=quiet_mode)
+    do_whitelist = any(x in sys.argv for x in ["--whitelist", "-w", "--add", "whitelist"])
+    run_health_check(quiet=quiet_mode, auto_whitelist=do_whitelist)

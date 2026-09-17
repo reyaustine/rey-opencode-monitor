@@ -58,6 +58,7 @@ if (args.includes('--help') || args.includes('-h') || args.includes('-?') || cmd
   console.log('  Commands:');
   console.log('    status           One-line or JSON fleet status (--json)');
   console.log('    health           Audit provider gateways & live free/discounted models (--quiet)');
+  console.log('    whitelist        Auto-whitelist newly discovered free models into OpenCode');
   console.log('    quota            Live multi-provider rate limits, credit balance & failover advice');
   console.log('    models           Browse all allowlisted & discovered models (--list, --json)');
   console.log('    fix, doctor      Run diagnostic checks & auto-repair configurations');
@@ -97,6 +98,10 @@ switch (cmd) {
 
   case 'health':
     pyScript('rey-health.py', rest)();
+    break;
+
+  case 'whitelist':
+    pyScript('rey-health.py', ['--whitelist', ...rest])();
     break;
 
   case 'logs':
