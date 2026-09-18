@@ -254,6 +254,9 @@ def _load_dynamic_models():
                     display_name = "InclusionAI Ling 3.0 Flash Sante"
                 elif "fin" in model_str:
                     display_name = "InclusionAI Ling 3.0 Flash Fin"
+            # Special handling for stepfun
+            if "stepfun" in model_str or "step-3.7-flash" in model_str:
+                display_name = "Step 3.7 Flash"
         
         # Create description
         if provider_id == "openrouter":
@@ -462,7 +465,7 @@ def set_rotation(codes_or_str):
     else:
         raw_items = [str(p).strip().upper() for p in codes_or_str if str(p).strip()]
 
-    all_models = {**PAGE1_MODELS, **PAGE2_MODELS}
+    all_models = get_all_models()
 
     pool = []
     invalid = []
@@ -491,7 +494,7 @@ def set_rotation(codes_or_str):
 
     if invalid:
         print(f"\n[!] Invalid model code(s): {', '.join(invalid)}")
-        print("[i] Available codes: 1-7 (Page 1), A-Z (Page 2). Example: W, U, T")
+        print("[i] Available codes: 1-7 (Page 1), A-Z (Page 2), AA-ZZ dynamic. Example: W, U, T or AA, AB")
         return False
 
     if len(pool) < 2:
@@ -616,7 +619,7 @@ def show_page2():
     print("=" * 75)
 
     try:
-        choice = input("\n Select model [A-Z] or enter 2-5 models (e.g. W, U, T), or 0 to go back: ").strip()
+        choice = input("\n Select model [A-Z, AA-ZZ] or enter 2-5 models (e.g. W, U, T or AA, AB), or 0 to go back: ").strip()
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
         return

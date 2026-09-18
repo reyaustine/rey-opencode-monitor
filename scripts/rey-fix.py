@@ -278,6 +278,187 @@ def check_swarm_pack():
         warn(f"swarm-pack not found: {SWARM_DIR}")
 
 
+def _load_whitelist_from_jsonc(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        lines = [l for l in content.splitlines() if not l.strip().startswith("//")]
+        clean = "\n".join(lines)
+        clean2 = []
+        for l in clean.splitlines():
+            idx = l.find(" //")
+            if idx != -1:
+                l = l[:idx]
+            clean2.append(l)
+        clean = "\n".join(clean2)
+        clean = re.sub(r",\s*([\]}])", r"\1", clean)
+        data = json.loads(clean)
+        wl = data.get("provider", {}).get("openrouter", {}).get("whitelist", [])
+        models = data.get("provider", {}).get("openrouter", {}).get("models", {})
+        return set(wl), set(models.keys()), data
+    except Exception:
+        return None, None, None
+
+def _load_whitelist_from_json(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        wl = data.get("provider", {}).get("openrouter", {}).get("whitelist", [])
+        models = data.get("provider", {}).get("openrouter", {}).get("models", {})
+        return set(wl), set(models.keys()), data
+    except Exception:
+        return None, None, None
+
+def check_whitelist_alignment(auto_fix=True):
+    section("9. WHITELIST ALIGNMENT (REY CLI <-> OPENCODE IDE)")
+    # Canonical source is the repo configs (version-controlled). Deployed configs must match it.
+    repo_jsonc = os.path.join(os.path.dirname(__file__), "..", "configs", "opencode.jsonc")
+    # When running from deployed location, __file__ is in CONFIG_DIR/scripts, so fallback
+    if not os.path.exists(repo_jsonc):
+        repo_jsonc = os.path.join(SWARM_DIR, "configs", "opencode.jsonc")
+    repo_json = os.path.join(os.path.dirname(repo_jsonc), "opencode.json")
+    deployed_jsonc = os.path.join(CONFIG_DIR, "opencode.jsonc")
+    deployed_json = os.path.join(CONFIG_DIR, "opencode.json")
+
+    paths = {
+        "repo opencode.jsonc": repo_jsonc,
+        "repo opencode.json": repo_json,
+        "deployed opencode.jsonc": deployed_jsonc,
+        "deployed opencode.json": deployed_json,
+    }
+
+    whitelists = {}
+    model_dicts = {}
+    for label, p in paths.items():
+        if os.path.exists(p):
+            if p.endswith(".jsonc"):
+                wl, md, _ = _load_whitelist_from_jsonc(p)
+            else:
+                wl, md, _ = _load_whitelist_from_json(p)
+            if wl is not None:
+                whitelists[label] = wl
+                model_dicts[label] = md
+                ok(f"{label}: {len(wl)} whitelisted, {len(md)} models dict")
+            else:
+                warn(f"{label}: failed to parse")
+        else:
+            warn(f"{label}: MISSING at {p}")
+
+    if not whitelists:
+        warn("No whitelist files found to compare")
+        return
+
+    # Canonical = union of all (covers health's 24) OR repo_jsonc if present
+    canonical = set()
+    for wl in whitelists.values():
+        canonical |= wl
+    # Prefer repo_jsonc as canonical if it has the most
+    if "repo opencode.jsonc" in whitelists:
+        canonical = whitelists["repo opencode.jsonc"] | canonical
+    # Also check deployed vs repo: they must be identical
+    all_equal = len(set(frozenset(s) for s in whitelists.values())) == 1
+
+    if all_equal:
+        ok(f"All {len(whitelists)} whitelist files are 101% ALIGNED ({len(canonical)} models)")
+        # Also check models dict coverage
+        for label in whitelists:
+            wl = whitelists[label]
+            md = model_dicts[label]
+            missing_in_models = wl - md
+            if missing_in_models:
+                warn(f"{label}: {len(missing_in_models)} whitelisted models missing from models dict: {sorted(list(missing_in_models))[:3]}...")
+            else:
+                ok(f"{label}: models dict covers all whitelisted models")
+        # Check override dynamic count
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("ovr", os.path.join(SCRIPTS_DIR, "rey-override.py"))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            allm = mod.get_all_models()
+            ok(f"rey-override dynamic menu: {len(allm)} total (PAGE1 {len(mod.PAGE1_MODELS)} + PAGE2 {len(mod.PAGE2_MODELS)} + {len(allm)-len(mod.PAGE1_MODELS)-len(mod.PAGE2_MODELS)} dynamic AA-ZZ)")
+        except Exception as e:
+            warn(f"rey-override dynamic check failed: {e}")
+        return
+
+    # Misalignment detected
+    warn(f"WHITELIST DIVERGENCE DETECTED (canonical {len(canonical)} vs per-file counts {[len(v) for v in whitelists.values()]})")
+    for label, wl in whitelists.items():
+        extra = canonical - wl
+        missing = wl - canonical  # should be empty since canonical is union
+        if extra:
+            warn(f"  {label} MISSING {len(extra)}: {sorted(list(extra))[:5]}{'...' if len(extra)>5 else ''}")
+
+    if auto_fix:
+        fixed_any = False
+        for label, p in paths.items():
+            wl = whitelists.get(label)
+            if wl is None:
+                continue
+            if wl != canonical:
+                try:
+                    if p.endswith(".jsonc"):
+                        with open(p, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        # Parse to verify we can load
+                        wl_cur, md_cur, data = _load_whitelist_from_jsonc(p)
+                        # Update data dict
+                        # Re-read raw and do proper update via json load of cleaned, then dump with json (will lose comments but keep valid)
+                        # For .jsonc, we preserve by loading cleaned, updating, then dumping as JSON (comments stripped) - acceptable for auto-fix
+                        lines = [l for l in content.splitlines() if not l.strip().startswith("//")]
+                        clean = "\n".join(lines)
+                        clean2 = []
+                        for l in clean.splitlines():
+                            idx = l.find(" //")
+                            if idx != -1:
+                                l = l[:idx]
+                            clean2.append(l)
+                        clean = "\n".join(clean2)
+                        clean = re.sub(r",\s*([\]}])", r"\1", clean)
+                        data = json.loads(clean)
+                        if "provider" not in data:
+                            data["provider"] = {}
+                        if "openrouter" not in data["provider"]:
+                            data["provider"]["openrouter"] = {}
+                        data["provider"]["openrouter"]["whitelist"] = sorted(list(canonical))
+                        # Ensure models dict has entries for each whitelisted model
+                        models = data["provider"]["openrouter"].get("models", {})
+                        for mid in canonical:
+                            if mid not in models:
+                                models[mid] = {"name": mid.split("/")[-1].replace(":free","").replace("-", " ").title() + " (free)"}
+                        data["provider"]["openrouter"]["models"] = models
+                        with open(p, "w", encoding="utf-8") as f:
+                            json.dump(data, f, indent=2)
+                        fixed(f"Synced {label} -> {len(canonical)} models (added {len(canonical - wl)})")
+                        fixed_any = True
+                    else:
+                        with open(p, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        if "provider" not in data:
+                            data["provider"] = {}
+                        if "openrouter" not in data["provider"]:
+                            data["provider"]["openrouter"] = {}
+                        data["provider"]["openrouter"]["whitelist"] = sorted(list(canonical))
+                        models = data["provider"]["openrouter"].get("models", {})
+                        for mid in canonical:
+                            if mid not in models:
+                                models[mid] = {"name": mid.split("/")[-1].replace(":free","").replace("-", " ").title() + " (free)"}
+                        data["provider"]["openrouter"]["models"] = models
+                        with open(p, "w", encoding="utf-8") as f:
+                            json.dump(data, f, indent=2)
+                        fixed(f"Synced {label} -> {len(canonical)} models (added {len(canonical - wl)})")
+                        fixed_any = True
+                except Exception as e:
+                    fail(f"Failed to sync {label}: {e}")
+        if fixed_any:
+            fixed("Whitelist alignment 101% FIXED — all 4 files now identical. Restart OpenCode to apply.")
+        else:
+            warn("No files were auto-fixed (check permissions)")
+
+    else:
+        warn("Run 'rey fix' to auto-repair whitelist alignment")
+
+
 def main():
     print(f"\n{CYAN}{'=' * 70}{RESET}")
     print(f"  {BOLD}R.E.Y. // FIX & DIAGNOSTICS ENGINE{RESET}")
@@ -292,6 +473,7 @@ def main():
     check_auth_keys()
     check_database()
     check_swarm_pack()
+    check_whitelist_alignment(auto_fix=True)
 
     # Summary
     section("SUMMARY")

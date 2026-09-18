@@ -448,20 +448,25 @@ def get_opencode_builtin_models():
 def add_models_to_whitelist(models_to_add):
     """
     Auto-adds newly discovered free models to provider.openrouter.whitelist
-    across configs/opencode.jsonc, configs/opencode.json, deployed runtime configs,
-    and model-fallback.json.
+    AND provider.openrouter.models dict across configs/opencode.jsonc, 
+    configs/opencode.json, deployed runtime configs, and model-fallback.json.
+    Uses proper JSON parsing (not regex) for reliability.
     """
     if not models_to_add:
         print("\n  [i] No newly discovered models to add.")
         return False, 0
 
     raw_ids = []
+    model_names = {}
     for m in models_to_add:
         raw_id = m.get("raw_id", "") if isinstance(m, dict) else str(m)
+        name = m.get("name", "") if isinstance(m, dict) else ""
         if raw_id.startswith("openrouter/"):
             raw_id = raw_id.replace("openrouter/", "", 1)
         if raw_id and raw_id not in raw_ids:
             raw_ids.append(raw_id)
+            if name:
+                model_names[raw_id] = name
 
     if not raw_ids:
         return False, 0
@@ -481,36 +486,37 @@ def add_models_to_whitelist(models_to_add):
 
     total_added = 0
 
-    # 1. Update JSONC files (preserving comments & structure)
+    def update_config(data, raw_ids, model_names):
+        """Update both whitelist and models dict in a config dict."""
+        if "provider" not in data or "openrouter" not in data["provider"]:
+            return 0
+        or_cfg = data["provider"]["openrouter"]
+        existing_wl = or_cfg.get("whitelist", [])
+        existing_md = or_cfg.get("models", {})
+        combined_wl = list(dict.fromkeys(existing_wl + raw_ids))
+        or_cfg["whitelist"] = combined_wl
+        for rid in raw_ids:
+            if rid not in existing_md:
+                existing_md[rid] = {"name": model_names.get(rid, rid)}
+        or_cfg["models"] = existing_md
+        return len(combined_wl) - len(existing_wl)
+
+    # 1. Update JSONC files (strip comments, parse JSON, update, write)
     for path in set(target_jsonc_files):
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     content = f.read()
-                pattern = r'("openrouter"\s*:\s*\{)([^}]+)(\})'
-                match = re.search(pattern, content)
-                if match:
-                    before_body, body, after_body = match.group(1), match.group(2), match.group(3)
-                    if '"whitelist"' in body:
-                        wl_match = re.search(r'("whitelist"\s*:\s*\[)([^\]]*)(\])', body)
-                        if wl_match:
-                            existing = [m.strip(' \t\r\n"') for m in wl_match.group(2).split(',') if m.strip(' \t\r\n"')]
-                            combined = list(dict.fromkeys(existing + raw_ids))
-                            formatted_wl = '\n' + ',\n'.join(f'        "{m}"' for m in combined) + '\n      '
-                            new_body = body[:wl_match.start(2)] + formatted_wl + body[wl_match.end(2):]
-                            new_content = content[:match.start()] + before_body + new_body + after_body + content[match.end():]
-                            total_added = max(total_added, len(combined) - len(existing))
-                        else:
-                            continue
-                    else:
-                        formatted_wl = '\n      "whitelist": [\n' + ',\n'.join(f'        "{m}"' for m in raw_ids) + '\n      ]'
-                        new_body = body.rstrip() + ',' + formatted_wl + '\n    '
-                        new_content = content[:match.start()] + before_body + new_body + after_body + content[match.end():]
-                        total_added = max(total_added, len(raw_ids))
-                    with open(path, "w", encoding="utf-8") as f:
-                        f.write(new_content)
-            except Exception:
-                pass
+                # Strip // comments
+                lines = [l for l in content.split('\n') if not l.strip().startswith('//')]
+                cleaned = '\n'.join(lines)
+                data = json.loads(cleaned)
+                added = update_config(data, raw_ids, model_names)
+                total_added = max(total_added, added)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+            except Exception as e:
+                print(f"  [WARN] Failed to update {path}: {e}")
 
     # 2. Update JSON files
     for path in set(target_json_files):
@@ -518,14 +524,12 @@ def add_models_to_whitelist(models_to_add):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                if "provider" in data and "openrouter" in data["provider"]:
-                    existing = data["provider"]["openrouter"].get("whitelist", [])
-                    combined = list(dict.fromkeys(existing + raw_ids))
-                    data["provider"]["openrouter"]["whitelist"] = combined
-                    with open(path, "w", encoding="utf-8") as f:
-                        json.dump(data, f, indent=2)
-            except Exception:
-                pass
+                added = update_config(data, raw_ids, model_names)
+                total_added = max(total_added, added)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+            except Exception as e:
+                print(f"  [WARN] Failed to update {path}: {e}")
 
     # 3. Update Fallback chains
     for path in set(target_fallback_files):
@@ -541,10 +545,10 @@ def add_models_to_whitelist(models_to_add):
                             fb_models.append(full_rid)
                     with open(path, "w", encoding="utf-8") as f:
                         json.dump(fdata, f, indent=2)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"  [WARN] Failed to update fallback {path}: {e}")
 
-    print(f"\n  {GREEN}[✓] Successfully added {len(raw_ids)} models to OpenCode whitelist & configs!{RESET}")
+    print(f"\n  {GREEN}[✓] Successfully added {len(raw_ids)} models to OpenCode whitelist & models dict!{RESET}")
     for rid in raw_ids:
         print(f"      • openrouter/{rid}")
     print(f"\n  {YELLOW}[*] Swarm configs updated. Restart OpenCode to apply.{RESET}\n")
@@ -604,7 +608,7 @@ def run_health_check(quiet=False, auto_whitelist=False):
             for m in or_data.get("data", []):
                 all_openrouter_models.append(m)
                 mid = m.get("id", "")
-                pricing = m.get("pricing", {})
+                pricing = m.get("pricing") or {}
                 is_free = mid.endswith(":free") or (pricing.get("prompt") == "0" and pricing.get("completion") == "0")
                 if is_free:
                     openrouter_free_models.append(m)
