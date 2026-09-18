@@ -111,7 +111,7 @@
         "codestral-2508"
       ]
     },
-        "openrouter": {
+    "openrouter": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OpenRouter (free & deals)",
       "options": {
@@ -140,7 +140,9 @@
         "nvidia/nemotron-3-ultra-550b-a55b:free",
         "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "nvidia/nemotron-3-super-120b-a12b:free",
-        "openrouter/free"
+        "openrouter/free",
+        "deepseek/deepseek-v4-flash-0731:free",
+        "qwen/qwen3.8-27b:free"
       ],
       "models": {
         "google/gemma-4-31b-it:free": {
@@ -161,6 +163,12 @@
         "nex-agi/nex-n2.5-pro:free": {
           "name": "Nex-N2.5-Pro (free)"
         },
+        "inclusionai/ling-3.0-flash-sante:free": {
+          "name": "Ling 3.0 Flash Sante (free)"
+        },
+        "inclusionai/ling-3.0-flash-fin:free": {
+          "name": "Ling 3.0 Flash Fin (free)"
+        },
         "dots-studio/dots-3-note-preview:free": {
           "name": "Dots3-Note Preview (free)"
         },
@@ -170,8 +178,14 @@
         "nvidia/nemotron-3.5-lightning:free": {
           "name": "Nemotron 3.5 Lightning (free)"
         },
+        "thinkingmachines/inkling-small:free": {
+          "name": "Inkling Small (free)"
+        },
         "poolside/laguna-s-2.1:free": {
           "name": "Poolside Laguna S 2.1 (free)"
+        },
+        "thinkingmachines/inkling:free": {
+          "name": "ThinkingMachines Inkling (free)"
         },
         "poolside/laguna-xs-2.1:free": {
           "name": "Poolside Laguna XS 2.1 (free)"
@@ -179,11 +193,29 @@
         "cohere/north-mini-code:free": {
           "name": "Cohere North Mini Code (free)"
         },
-        "thinkingmachines/inkling:free": {
-          "name": "ThinkingMachines Inkling (free)"
+        "z-ai/glm-5.2:free": {
+          "name": "GLM 5.2 (free)"
+        },
+        "nvidia/nemotron-3.5-content-safety:free": {
+          "name": "Nemotron 3.5 Content Safety (free)"
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "name": "Nemotron 3 Ultra 550B (free)"
+        },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+          "name": "Nemotron 3 Nano Omni (free)"
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "name": "Nemotron 3 Super 120B (free)"
         },
         "openrouter/free": {
           "name": "OpenRouter Auto Free"
+        },
+        "deepseek/deepseek-v4-flash-0731:free": {
+          "name": "DeepSeek V4 Flash (free)"
+        },
+        "qwen/qwen3.8-27b:free": {
+          "name": "Qwen 3.8 27B (free)"
         }
       }
     },
@@ -232,13 +264,13 @@
     },
     "general": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "General conversational and troubleshooting agent.",
       "prompt": "You are a versatile engineering assistant. Provide direct, factual, and actionable solutions."
     },
     "compaction": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Context summarizer and session compaction engine."
     },
     "orchestrator": {
@@ -283,23 +315,23 @@
     },
     "explorer": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Fast explorer for quick patches, CSS tweaks, UI updates, and surgical file edits.",
       "prompt": "You are a rapid-execution developer. Make precise, minimal changes. Speed over verbosity."
     },
     "architect": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Heavyweight agent for architecture design, deep repository understanding, and system design."
     },
     "critic": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Critical analysis agent for evaluating architecture decisions, finding edge-case flaws, and stress-testing plans."
     },
     "researcher": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "Research agent for investigating libraries, APIs, best practices, and gathering context."
     },
     "docs": {
@@ -309,7 +341,7 @@
     },
     "designer": {
       "mode": "all",
-"model": "openrouter/google/gemma-4-31b-it:free",
+      "model": "openrouter/google/gemma-4-31b-it:free",
       "description": "UI/UX design agent. Creates component designs, layout plans, and visual specifications."
     }
   },
