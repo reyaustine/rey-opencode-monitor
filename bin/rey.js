@@ -71,7 +71,9 @@ if (args.includes('--help') || args.includes('-h') || args.includes('-?') || cmd
   console.log('  Commands:');
   console.log('    status           One-line or JSON fleet status (--json)');
   console.log('    health           Audit provider gateways & live free/discounted models (--quiet)');
+  console.log('    prune            Auto-remove offline/timed-out/high-latency models from all configs');
   console.log('    whitelist        Auto-whitelist newly discovered free models into OpenCode');
+  console.log('    sync-models      Prune dead models + whitelist new free models in one shot');
   console.log('    quota            Live multi-provider rate limits, credit balance & failover advice');
   console.log('    models           Browse all allowlisted & discovered models (--list, --json)');
   console.log('    fix, doctor      Run diagnostic checks & auto-repair configurations');
@@ -126,6 +128,16 @@ switch (cmd) {
 
   case 'health':
     pyScript('rey-health.py', rest)();
+    break;
+
+  case 'prune':
+  case 'clean-models':
+    pyScript('rey-health.py', ['--prune', ...rest])();
+    break;
+
+  case 'sync-models':
+  case 'sync':
+    pyScript('rey-health.py', ['--sync', ...rest])();
     break;
 
   case 'whitelist':
@@ -255,7 +267,7 @@ switch (cmd) {
       console.log('  Unknown command: ' + cmd);
       console.log('');
       console.log('  Usage: rey [command]');
-      console.log('    status | health | quota | models | fix | override | roster');
+      console.log('    status | health | prune | sync-models | quota | models | fix | override | roster');
       console.log('    switch-provider | deals | logs | deploy | verify | install');
       console.log('    update | report | cleanup');
       console.log('    (no command) -> start the R.E.Y. Monitor');

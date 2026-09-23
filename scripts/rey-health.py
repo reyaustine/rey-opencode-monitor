@@ -555,8 +555,175 @@ def add_models_to_whitelist(models_to_add):
     return True, len(raw_ids)
 
 
-def run_health_check(quiet=False, auto_whitelist=False):
-    """Executes multi-provider health check, full model audit, and model discovery."""
+def prune_unhealthy_models(unhealthy_models, quiet=False):
+    """
+    Auto-prunes offline, unresponsive, timed-out, and high latency-risk models
+    from provider whitelists, models dictionaries, and fallback chains across:
+      - configs/opencode.jsonc & ~/.config/opencode/opencode.jsonc
+      - configs/opencode.json & ~/.config/opencode/opencode.json
+      - configs/model-fallback.json & ~/.config/opencode/model-fallback.json
+      - ~/opencode-swarm-pack/configs (if present)
+    """
+    if not unhealthy_models:
+        if not quiet:
+            print("\n  [i] No unhealthy models to prune - all models healthy.")
+        return False, 0
+
+    pruned_by_provider = {}
+    pruned_full_ids = set()
+
+    for item in unhealthy_models:
+        raw_str = item.get("id", "") if isinstance(item, dict) else str(item)
+        # Strip trailing warning string e.g. "openrouter/model:free (Provider endpoint down)"
+        clean_full = raw_str.split()[0].strip()
+        if not clean_full:
+            continue
+        pruned_full_ids.add(clean_full)
+        if "/" in clean_full:
+            prov, rid = clean_full.split("/", 1)
+        else:
+            prov, rid = "openrouter", clean_full
+        pruned_by_provider.setdefault(prov, set()).add(rid)
+
+    if not pruned_full_ids:
+        return False, 0
+
+    swarm_configs = os.path.join(HOME, "opencode-swarm-pack", "configs")
+    target_jsonc_files = [
+        os.path.join(REPO_ROOT, "configs", "opencode.jsonc"),
+        CONFIG_JSONC,
+        os.path.join(swarm_configs, "opencode.jsonc")
+    ]
+    target_json_files = [
+        os.path.join(REPO_ROOT, "configs", "opencode.json"),
+        CONFIG_JSON,
+        os.path.join(swarm_configs, "opencode.json")
+    ]
+    target_fallback_files = [
+        os.path.join(REPO_ROOT, "configs", "model-fallback.json"),
+        os.path.join(CONFIG_DIR, "model-fallback.json"),
+        os.path.join(swarm_configs, "model-fallback.json")
+    ]
+
+    def prune_from_dict(data):
+        changed = False
+        providers = data.get("provider", {})
+        for prov, bad_rids in pruned_by_provider.items():
+            if prov in providers:
+                p_cfg = providers[prov]
+                if "whitelist" in p_cfg and isinstance(p_cfg["whitelist"], list):
+                    before = len(p_cfg["whitelist"])
+                    p_cfg["whitelist"] = [m for m in p_cfg["whitelist"] if m not in bad_rids]
+                    if len(p_cfg["whitelist"]) != before:
+                        changed = True
+                if "models" in p_cfg and isinstance(p_cfg["models"], dict):
+                    for bad_id in bad_rids:
+                        if bad_id in p_cfg["models"]:
+                            del p_cfg["models"][bad_id]
+                            changed = True
+
+        # Fallback model safety
+        if data.get("model") in pruned_full_ids:
+            data["model"] = "gemini/gemini-3.6-flash"
+            changed = True
+        if data.get("small_model") in pruned_full_ids:
+            data["small_model"] = "mistral/codestral-latest"
+            changed = True
+
+        for ag in data.get("agent", {}).values():
+            if isinstance(ag, dict) and ag.get("model") in pruned_full_ids:
+                ag["model"] = "gemini/gemini-3.6-flash"
+                changed = True
+
+        return changed
+
+    # 1. Update JSONC files
+    for path in set(target_jsonc_files):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                lines = [l for l in content.split("\n") if not l.strip().startswith("//")]
+                cleaned = "\n".join(lines)
+                clean2 = []
+                for l in cleaned.splitlines():
+                    idx = l.find(" //")
+                    if idx != -1:
+                        l = l[:idx]
+                    clean2.append(l)
+                cleaned = "\n".join(clean2)
+                cleaned = re.sub(r",\s*([\]}])", r"\1", cleaned)
+                data = json.loads(cleaned)
+                if prune_from_dict(data):
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+            except Exception as e:
+                if not quiet:
+                    print(f"  [WARN] Failed to prune {path}: {e}")
+
+    # 2. Update JSON files
+    for path in set(target_json_files):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if prune_from_dict(data):
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+            except Exception as e:
+                if not quiet:
+                    print(f"  [WARN] Failed to prune {path}: {e}")
+
+    # 3. Update Fallback chains
+    for path in set(target_fallback_files):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    fdata = json.load(f)
+                fb_changed = False
+                if "agents" in fdata:
+                    for ag_val in fdata["agents"].values():
+                        if isinstance(ag_val, dict) and "fallbackModels" in ag_val and isinstance(ag_val["fallbackModels"], list):
+                            before = len(ag_val["fallbackModels"])
+                            ag_val["fallbackModels"] = [m for m in ag_val["fallbackModels"] if m not in pruned_full_ids]
+                            if len(ag_val["fallbackModels"]) != before:
+                                fb_changed = True
+                if fb_changed:
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(fdata, f, indent=2)
+            except Exception as e:
+                if not quiet:
+                    print(f"  [WARN] Failed to prune fallback {path}: {e}")
+
+    # 4. Clean circuit-breaker
+    cb_path = os.path.join(CONFIG_DIR, "circuit-breaker.json")
+    if os.path.exists(cb_path):
+        try:
+            with open(cb_path, "r", encoding="utf-8") as f:
+                cb_data = json.load(f)
+            qm = cb_data.get("quarantined_models", {})
+            cb_changed = False
+            for pid in pruned_full_ids:
+                if pid in qm:
+                    del qm[pid]
+                    cb_changed = True
+            if cb_changed:
+                with open(cb_path, "w", encoding="utf-8") as f:
+                    json.dump(cb_data, f, indent=2)
+        except Exception:
+            pass
+
+    if not quiet:
+        print(f"\n  {GREEN}[✓] Successfully pruned {len(pruned_full_ids)} unresponsive / high-latency models!{RESET}")
+        for pid in sorted(pruned_full_ids):
+            print(f"      {RED}✖{RESET} {pid} (removed from whitelist & fallbacks)")
+        print(f"\n  {YELLOW}[*] Swarm configs cleaned. Fleet now contains only verified working models.{RESET}\n")
+
+    return True, len(pruned_full_ids)
+
+
+def run_health_check(quiet=False, auto_whitelist=False, auto_prune=False):
+    """Executes multi-provider health check, full model audit, model discovery, and auto-pruning."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
     start_time = time.time()
 
@@ -944,18 +1111,38 @@ def run_health_check(quiet=False, auto_whitelist=False):
         print(f"\n Promotional Deals:")
         print(f"  {MAGENTA}★ {active_deals_count} active discounted models on OpenRouter (Press D in REY CLI to view all deals){RESET}")
 
-        # Auto-whitelist execution or interactive prompt
+        # Auto-prune and/or Auto-whitelist execution, or interactive prompt
+        unhealthy_candidates = list(dict.fromkeys(unresponsive + [d.split()[0] for d in degraded]))
+
+        if auto_prune and unhealthy_candidates:
+            prune_unhealthy_models(unhealthy_candidates, quiet=quiet)
+
         if auto_whitelist and new_free_models:
             add_models_to_whitelist(new_free_models)
-        elif new_free_models and not quiet and sys.stdin.isatty():
+
+        if not auto_prune and not auto_whitelist and (unhealthy_candidates or new_free_models) and not quiet and sys.stdin.isatty():
             print(f"\n  {CYAN}{'─' * 80}{RESET}")
-            print(f"  {BOLD}💡 Press [W] or [A] to auto-add all {len(new_free_models)} free models to OpenCode whitelist{RESET}")
+            options = []
+            if unhealthy_candidates:
+                options.append(f"{RED}[P] Prune {len(unhealthy_candidates)} dead/slow models{RESET}")
+            if new_free_models:
+                options.append(f"{GREEN}[W/A] Add {len(new_free_models)} new free models{RESET}")
+            if unhealthy_candidates and new_free_models:
+                options.append(f"{CYAN}[S] Sync fleet (Prune dead + Add new){RESET}")
+            print(f"  {BOLD}💡 Fleet Action Options:{RESET} " + " | ".join(options))
             print(f"     Press [Enter] to skip and return to monitor")
             print(f"  {CYAN}{'─' * 80}{RESET}")
             try:
-                ans = input("  Choice [W/A/Enter]: ").strip().upper()
-                if ans in ("W", "A"):
+                ans = input("  Choice [P/W/A/S/Enter]: ").strip().upper()
+                if ans == "P" and unhealthy_candidates:
+                    prune_unhealthy_models(unhealthy_candidates)
+                elif ans in ("W", "A") and new_free_models:
                     add_models_to_whitelist(new_free_models)
+                elif ans == "S":
+                    if unhealthy_candidates:
+                        prune_unhealthy_models(unhealthy_candidates)
+                    if new_free_models:
+                        add_models_to_whitelist(new_free_models)
             except (KeyboardInterrupt, EOFError):
                 pass
 
@@ -969,8 +1156,14 @@ def run_health_check(quiet=False, auto_whitelist=False):
 if __name__ == "__main__":
     quiet_mode = "--quiet" in sys.argv or "-q" in sys.argv
     do_whitelist = any(x in sys.argv for x in ["--whitelist", "-w", "--add", "--auto-whitelist", "-a", "whitelist"])
+    do_prune = any(x in sys.argv for x in ["--prune", "-p", "--clean", "--auto-prune", "prune", "clean"])
+    do_sync = any(x in sys.argv for x in ["--sync", "-s", "sync"])
+    if do_sync:
+        do_whitelist = True
+        do_prune = True
     if any(x in sys.argv for x in ["--all-models", "-m", "--models", "models"]):
         import subprocess
         subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "rey-models.py"), "--list"])
     else:
-        run_health_check(quiet=quiet_mode, auto_whitelist=do_whitelist)
+        run_health_check(quiet=quiet_mode, auto_whitelist=do_whitelist, auto_prune=do_prune)
+

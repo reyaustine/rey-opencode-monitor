@@ -120,15 +120,12 @@
       "whitelist": [
         "google/gemma-4-31b-it:free",
         "google/gemma-4-26b-a4b-it:free",
-        "stealth/union-alpha",
         "inclusionai/ling-3.0-flash-vl:free",
-        "nex-agi/nex-n2.5-mini:free",
         "nex-agi/nex-n2.5-pro:free",
         "inclusionai/ling-3.0-flash-sante:free",
         "inclusionai/ling-3.0-flash-fin:free",
         "dots-studio/dots-3-note-preview:free",
         "liquid/lfm-2.5-2.6b:free",
-        "nvidia/nemotron-3.5-lightning:free",
         "thinkingmachines/inkling-small:free",
         "poolside/laguna-s-2.1:free",
         "thinkingmachines/inkling:free",
@@ -137,10 +134,8 @@
         "z-ai/glm-5.2:free",
         "nvidia/nemotron-3.5-content-safety:free",
         "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "nvidia/nemotron-3-super-120b-a12b:free",
         "openrouter/free",
-        "deepseek/deepseek-v4-flash-0731:free",
         "qwen/qwen3.8-27b:free"
       ],
       "models": {
@@ -150,14 +145,8 @@
         "google/gemma-4-26b-a4b-it:free": {
           "name": "Google Gemma 4 26B (free)"
         },
-        "stealth/union-alpha": {
-          "name": "Union Alpha (free)"
-        },
         "inclusionai/ling-3.0-flash-vl:free": {
           "name": "Ling 3.0 Flash VL (free)"
-        },
-        "nex-agi/nex-n2.5-mini:free": {
-          "name": "Nex-N2.5-Mini (free)"
         },
         "nex-agi/nex-n2.5-pro:free": {
           "name": "Nex-N2.5-Pro (free)"
@@ -173,9 +162,6 @@
         },
         "liquid/lfm-2.5-2.6b:free": {
           "name": "Liquid LFM 2.5 (free)"
-        },
-        "nvidia/nemotron-3.5-lightning:free": {
-          "name": "Nemotron 3.5 Lightning (free)"
         },
         "thinkingmachines/inkling-small:free": {
           "name": "Inkling Small (free)"
@@ -201,17 +187,11 @@
         "nvidia/nemotron-3-ultra-550b-a55b:free": {
           "name": "Nemotron 3 Ultra 550B (free)"
         },
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
-          "name": "Nemotron 3 Nano Omni (free)"
-        },
         "nvidia/nemotron-3-super-120b-a12b:free": {
           "name": "Nemotron 3 Super 120B (free)"
         },
         "openrouter/free": {
           "name": "OpenRouter Auto Free"
-        },
-        "deepseek/deepseek-v4-flash-0731:free": {
-          "name": "DeepSeek V4 Flash (free)"
         },
         "qwen/qwen3.8-27b:free": {
           "name": "Qwen 3.8 27B (free)"
