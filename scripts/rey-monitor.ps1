@@ -596,10 +596,10 @@ function Refresh-Status {
       try {
         $cbData = Get-Content -LiteralPath $cbPath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($cbData.quarantined_models) {
-          $script:quarantinedModels = @($cbData.quarantined_models.PSObject.Properties.Name)
+          $script:quarantinedModels = @($cbData.quarantined_models.PSObject.Properties.Name | Where-Object { $_ })
         }
         if ($cbData.quarantined_providers) {
-          $script:quarantinedProviders = @($cbData.quarantined_providers.PSObject.Properties.Name)
+          $script:quarantinedProviders = @($cbData.quarantined_providers.PSObject.Properties.Name | Where-Object { $_ })
         }
       } catch { }
     }
@@ -942,8 +942,8 @@ function Draw([int]$frame, [bool]$working) {
       }
     } elseif ($hasQuarantine) {
       $qItems = @()
-      foreach ($p in $script:quarantinedProviders) { $qItems += $p.ToUpper() }
-      foreach ($m in $script:quarantinedModels) { $qItems += ($m -split '/')[-1] }
+      foreach ($p in $script:quarantinedProviders) { if ($p) { $qItems += $p.ToUpper() } }
+      foreach ($m in $script:quarantinedModels) { if ($m) { $qItems += ($m -split '/')[-1] } }
       $qJoined = ($qItems | Select-Object -First 4) -join ', '
       Write-Row 2  ("  🛡️  QUARANTINED (5+ ERRORS): [ $qJoined ] | ROSTER AUTO-HEALED  ") 'White' 'DarkMagenta'
     } else {
@@ -971,9 +971,9 @@ function Draw([int]$frame, [bool]$working) {
     } elseif ($q -and $q.ok) {
       $freeRem = if ($q.free_quota_known) { $q.free_remaining } else { '?' }
       $freeLim = if ($q.free_quota_known) { $q.free_limit } else { '?' }
-      $bal = [double]($q.credits_remaining)
-      $limit = [double]($q.credit_limit)
-      $percent = [double]($q.credit_percent_remaining)
+      $bal = if ($null -ne $q.credits_remaining) { [double]($q.credits_remaining) } else { 0.0 }
+      $limit = if ($null -ne $q.credit_limit) { [double]($q.credit_limit) } else { 0.0 }
+      $percent = if ($null -ne $q.credit_percent_remaining) { [double]($q.credit_percent_remaining) } else { 0.0 }
       $budget = if ($null -ne $q.budget_status) { $q.budget_status } else { 'UNKNOWN' }
       $budgetText = if ($budget -eq 'DEPLETED') { 'CREDIT DEPLETED' } elseif ($budget -eq 'CRITICAL') { 'CRITICAL CREDIT' } elseif ($budget -eq 'LOW') { 'LOW CREDIT' } elseif ($budget -eq 'OK') { 'CREDIT OK' } else { 'CREDIT UNKNOWN' }
       $limitText = if ($limit -gt 0) { $limit.ToString('N2') } else { '?' }
