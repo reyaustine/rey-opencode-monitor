@@ -411,12 +411,16 @@ def check_whitelist_alignment(auto_fix=True):
         return
 
     # Misalignment detected
-    warn(f"WHITELIST DIVERGENCE DETECTED (canonical {len(canonical)} vs per-file counts {[len(v) for v in whitelists.values()]})")
+    divergence_warnings = []
+    div_msg = f"WHITELIST DIVERGENCE DETECTED (canonical {len(canonical)} vs per-file counts {[len(v) for v in whitelists.values()]})"
+    warn(div_msg)
+    divergence_warnings.append(div_msg)
     for label, wl in whitelists.items():
         extra = canonical - wl
-        missing = wl - canonical  # should be empty since canonical is union
         if extra:
-            warn(f"  {label} MISSING {len(extra)}: {sorted(list(extra))[:5]}{'...' if len(extra)>5 else ''}")
+            m_msg = f"  {label} MISSING {len(extra)}: {sorted(list(extra))[:5]}{'...' if len(extra)>5 else ''}"
+            warn(m_msg)
+            divergence_warnings.append(m_msg)
 
     if auto_fix:
         fixed_any = False
@@ -480,6 +484,9 @@ def check_whitelist_alignment(auto_fix=True):
                 except Exception as e:
                     fail(f"Failed to sync {label}: {e}")
         if fixed_any:
+            for dw in divergence_warnings:
+                if dw in issues_found:
+                    issues_found.remove(dw)
             fixed("Whitelist alignment 101% FIXED — all 4 files now identical. Restart OpenCode to apply.")
         else:
             warn("No files were auto-fixed (check permissions)")
