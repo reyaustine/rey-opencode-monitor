@@ -202,6 +202,7 @@ switch (cmd) {
       const homeDir = require('os').homedir();
       const configsDir = path.join(rootDir, 'configs');
       const globalDir = path.join(homeDir, '.config', 'opencode');
+      const swarmDir = path.join(homeDir, 'opencode-swarm-pack');
       const files = ['opencode.jsonc', 'opencode.json', 'model-fallback.json', 'skill-routing.yaml'];
 
       console.log('');
@@ -242,6 +243,18 @@ switch (cmd) {
               }
             }
           }
+        }
+      }
+
+      // Sync bin/rey.js to swarm-pack so CLI commands are always in sync
+      const swarmBin = path.join(swarmDir, 'bin', 'rey.js');
+      if (fs.existsSync(swarmDir)) {
+        try {
+          fs.mkdirSync(path.join(swarmDir, 'bin'), { recursive: true });
+          fs.copyFileSync(__filename, swarmBin);
+          console.log('  [+] bin/rey.js -> opencode-swarm-pack');
+        } catch (e) {
+          console.log('  [!] bin/rey.js sync failed: ' + e.message);
         }
       }
 
